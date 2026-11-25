@@ -1,9 +1,8 @@
 """Comprehensive tests for WorkSphere FastAPI analytics endpoints."""
 
 from datetime import date, timedelta
-from uuid import uuid4
 
-from tests.conftest import FakeExecuteResult, ORG_A, ORG_B, PROJECT_A1, PROJECT_B1, USER_1, USER_2
+from tests.conftest import FakeExecuteResult, ORG_A, ORG_B, PROJECT_A1, USER_1, USER_2
 
 
 def test_analytics_requires_api_key(make_client):

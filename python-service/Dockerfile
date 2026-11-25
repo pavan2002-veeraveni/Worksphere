@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev &
 COPY requirements.txt .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
 
-FROM python:3.11-slim AS runtime
+FROM python:3.11-slim AS production
 WORKDIR /app
 
 RUN groupadd -g 1001 worksphere && \

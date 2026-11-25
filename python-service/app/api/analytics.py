@@ -9,11 +9,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-else:
-    AsyncSession = Any
-
 from app.core.database import get_db_session
 from app.core.security import verify_api_key
 from app.models.schemas import (
@@ -27,6 +22,11 @@ from app.models.schemas import (
     WorkloadResponse,
 )
 from app.services import analytics_service, report_service
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+else:
+    AsyncSession = Any
 
 router = APIRouter(
     prefix="/api/v1/analytics",

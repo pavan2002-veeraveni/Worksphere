@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.logging_config import get_logger
 from app.models.schemas import ReportRequest
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = get_logger(__name__)
 
