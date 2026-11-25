@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export const SIGNUP_ALLOWED_ROLES = ['owner', 'project_manager'] as const;
+export const LOGIN_ALLOWED_ROLES = ['platform_admin', 'owner', 'project_manager'] as const;
+
 export const registerSchema = z.object({
   email: z.string().email('Valid email address is required').max(255),
   password: z
@@ -9,13 +12,28 @@ export const registerSchema = z.object({
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one digit'),
-  firstName: z.string().trim().min(1, 'First name is required').max(100),
-  lastName: z.string().trim().min(1, 'Last name is required').max(100),
+  role: z
+    .enum(SIGNUP_ALLOWED_ROLES, {
+      errorMap: () => ({
+        message: 'Signup role must be Organization Owner or Project Manager',
+      }),
+    })
+    .optional(),
+  firstName: z.string().trim().min(1, 'First name is required').max(100).optional(),
+  lastName: z.string().trim().min(1, 'Last name is required').max(100).optional(),
+  organizationName: z.string().trim().min(2, 'Organization name must be at least 2 characters').max(255).optional(),
 });
 
 export const loginSchema = z.object({
   email: z.string().email('Valid email address is required'),
   password: z.string().min(1, 'Password is required'),
+  role: z
+    .enum(LOGIN_ALLOWED_ROLES, {
+      errorMap: () => ({
+        message: 'Login is restricted to Platform Admin, Organization Owner, and Project Manager roles',
+      }),
+    })
+    .optional(),
 });
 
 export const refreshTokenSchema = z.object({

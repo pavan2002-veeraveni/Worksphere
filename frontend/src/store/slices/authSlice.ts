@@ -8,13 +8,9 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-const VALID_ROLES: LoginRole[] = [
-  'platform_admin',
-  'owner',
-  'project_manager',
-  'team_member',
-  'auditor',
-];
+const VALID_ROLES: LoginRole[] = ['platform_admin', 'owner', 'project_manager'];
+
+const ALLOWED_ORG_ROLES = new Set<LoginRole>(['owner', 'project_manager']);
 
 function readStoredRole(): LoginRole | null {
   if (typeof window === 'undefined') return null;
@@ -72,7 +68,7 @@ const authSlice = createSlice({
         return;
       }
 
-      const orgs = user.organizations || [];
+      const orgs = (user.organizations || []).filter((o) => ALLOWED_ORG_ROLES.has(o.role));
       let resolvedOrg = state.currentOrg
         ? orgs.find((o) => o.id === state.currentOrg?.id) || null
         : null;
@@ -85,15 +81,15 @@ const authSlice = createSlice({
       state.currentOrg = resolvedOrg;
 
       const storedRole = state.activeRole || readStoredRole();
-      let resolvedRole: LoginRole;
+      let resolvedRole: LoginRole | null;
       if (storedRole === 'platform_admin' && user.isPlatformAdmin) {
         resolvedRole = 'platform_admin';
-      } else if (resolvedOrg) {
+      } else if (resolvedOrg && ALLOWED_ORG_ROLES.has(resolvedOrg.role)) {
         resolvedRole = resolvedOrg.role;
       } else if (user.isPlatformAdmin) {
         resolvedRole = 'platform_admin';
       } else {
-        resolvedRole = 'team_member';
+        resolvedRole = null;
       }
 
       state.activeRole = resolvedRole;

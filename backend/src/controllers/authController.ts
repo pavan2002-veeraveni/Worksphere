@@ -10,8 +10,8 @@ export const authController = {
   },
 
   async login(req: Request, res: Response): Promise<Response> {
-    const { email, password } = req.body;
-    const result = await authService.login(email, password);
+    const { email, password, role } = req.body;
+    const result = await authService.login(email, password, role);
     return successResponse(res, result, StatusCodes.OK);
   },
 

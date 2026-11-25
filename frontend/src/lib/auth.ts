@@ -1,4 +1,5 @@
 import { post, get } from './api';
+import type { PortalLoginRole, SignupRole } from './roles';
 import type { AuthTokens, User } from '@/types';
 
 const TOKEN_KEY = 'auth_tokens';
@@ -31,6 +32,7 @@ export function clearStoredTokens(): void {
 export async function login(
   email: string,
   password: string,
+  role?: PortalLoginRole,
 ): Promise<{ user: User; tokens: AuthTokens }> {
   const response = await post<{
     user: User;
@@ -39,6 +41,7 @@ export async function login(
   }>('/auth/login', {
     email,
     password,
+    role,
   });
   if (response.success && response.data) {
     setStoredTokens(response.data.tokens);
@@ -52,22 +55,27 @@ export async function login(
 }
 
 export interface RegisterData {
-  firstName: string;
-  lastName: string;
   email: string;
   password: string;
+  role: SignupRole;
+  organizationName?: string;
 }
 
 export async function register(
   data: RegisterData,
 ): Promise<{ user: User; tokens: AuthTokens }> {
-  const response = await post<{ user: User; tokens: AuthTokens }>(
-    '/auth/register',
-    data,
-  );
+  const response = await post<{
+    user: User;
+    tokens: AuthTokens;
+    organizations?: User['organizations'];
+  }>('/auth/register', data);
   if (response.success && response.data) {
     setStoredTokens(response.data.tokens);
-    return response.data;
+    const mergedUser: User = {
+      ...response.data.user,
+      organizations: response.data.organizations || response.data.user.organizations,
+    };
+    return { user: mergedUser, tokens: response.data.tokens };
   }
   throw new Error(response.error?.message || 'Registration failed');
 }

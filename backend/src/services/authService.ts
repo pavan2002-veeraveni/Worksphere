@@ -20,6 +20,37 @@ export interface TokenPair {
   refreshToken: string;
 }
 
+export type SignupRole = 'owner' | 'project_manager';
+export type PortalLoginRole = 'platform_admin' | SignupRole;
+
+const ALLOWED_PORTAL_ORG_ROLES = new Set<string>(['owner', 'project_manager']);
+
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function deriveNamesFromEmail(
+  email: string,
+  role?: SignupRole,
+): { firstName: string; lastName: string } {
+  const localPart = email.split('@')[0] || 'workspace';
+  const cleaned = localPart
+    .split(/[._+-]+/)
+    .map((part) => part.replace(/[^a-zA-Z0-9]/g, ''))
+    .filter(Boolean);
+  const capitalize = (val: string) => val.charAt(0).toUpperCase() + val.slice(1);
+  const firstName = (cleaned[0] ? capitalize(cleaned[0]) : 'Workspace').slice(0, 100);
+  const roleFallback =
+    role === 'owner' ? 'Owner' : role === 'project_manager' ? 'Manager' : 'User';
+  const rawLast = cleaned.slice(1).map(capitalize).join(' ');
+  const lastName = (rawLast || roleFallback).slice(0, 100);
+  return { firstName, lastName };
+}
+
 function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -81,35 +112,94 @@ export const authService = {
   async register(data: {
     email: string;
     password: string;
-    firstName: string;
-    lastName: string;
-  }): Promise<{ user: SafeUser; tokens: TokenPair }> {
+    role?: SignupRole;
+    firstName?: string;
+    lastName?: string;
+    organizationName?: string;
+  }): Promise<{
+    user: SafeUser;
+    tokens: TokenPair;
+    organizations: Array<{ id: string; name: string; slug: string; plan: string; role: SignupRole }>;
+  }> {
     const db = getDb();
     const normalizedEmail = data.email.toLowerCase().trim();
+
+    if (data.role !== undefined && !ALLOWED_PORTAL_ORG_ROLES.has(data.role)) {
+      throw ApiError.forbidden(
+        'Signup access is restricted to Organization Owner and Project Manager roles',
+        'SIGNUP_ROLE_FORBIDDEN',
+      );
+    }
 
     const existing = await db('users').where({ email: normalizedEmail }).first('id');
     if (existing) {
       throw ApiError.conflict('An account with this email already exists', undefined, 'EMAIL_EXISTS');
     }
 
+    const derived = deriveNamesFromEmail(normalizedEmail, data.role);
+    const firstName = data.firstName?.trim() || derived.firstName;
+    const lastName = data.lastName?.trim() || derived.lastName;
     const passwordHash = await bcrypt.hash(data.password, config.jwt.bcryptRounds);
-    const [created] = await db('users')
-      .insert({
-        email: normalizedEmail,
-        password_hash: passwordHash,
-        first_name: data.firstName,
-        last_name: data.lastName,
-      })
-      .returning('*');
+
+    const { created, organizations } = await db.transaction(async (trx) => {
+      const [userRow] = await trx('users')
+        .insert({
+          email: normalizedEmail,
+          password_hash: passwordHash,
+          first_name: firstName,
+          last_name: lastName,
+        })
+        .returning('*');
+
+      const provisionedOrgs: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        plan: string;
+        role: SignupRole;
+      }> = [];
+
+      if (data.role) {
+        const orgName = data.organizationName?.trim() || `${firstName}'s Workspace`;
+        const baseSlug = slugify(orgName) || 'workspace';
+        const slug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
+        const [org] = await trx('organizations')
+          .insert({
+            name: orgName,
+            slug,
+            plan: 'free',
+            settings: JSON.stringify({}),
+          })
+          .returning('*');
+
+        await trx('organization_members').insert({
+          org_id: org.id,
+          user_id: userRow.id,
+          role: data.role,
+          invited_by: userRow.id,
+        });
+
+        provisionedOrgs.push({
+          id: String(org.id),
+          name: String(org.name),
+          slug: String(org.slug),
+          plan: String(org.plan || 'free'),
+          role: data.role,
+        });
+      }
+
+      return { created: userRow, organizations: provisionedOrgs };
+    });
 
     const safeUser = toSafeUser(created);
     const tokens = await this.issueTokenPair(safeUser);
-    return { user: safeUser, tokens };
+    return { user: safeUser, tokens, organizations };
   },
 
   async login(
     email: string,
     password: string,
+    role?: PortalLoginRole,
   ): Promise<{ user: SafeUser; tokens: TokenPair; organizations: unknown[] }> {
     const db = getDb();
     const userRow = await db('users').where({ email: email.toLowerCase().trim() }).first();
@@ -126,15 +216,46 @@ export const authService = {
       throw ApiError.unauthorized('Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
-    await db('users').where({ id: userRow.id }).update({ last_login_at: db.fn.now() });
-
     const safeUser = toSafeUser(userRow);
-    const tokens = await this.issueTokenPair(safeUser);
-    const organizations = await db('organizations as o')
+    const rawOrganizations = await db('organizations as o')
       .join('organization_members as om', 'om.org_id', 'o.id')
       .where('om.user_id', safeUser.id)
       .select('o.id', 'o.name', 'o.slug', 'o.plan', 'om.role');
 
+    const organizations = rawOrganizations.filter((org: { role?: unknown }) =>
+      ALLOWED_PORTAL_ORG_ROLES.has(String(org.role)),
+    );
+
+    if (role === 'platform_admin') {
+      if (!safeUser.isPlatformAdmin) {
+        throw ApiError.forbidden(
+          `Role verification failed: ${safeUser.email} does not have Platform Admin privileges.`,
+          'ROLE_FORBIDDEN',
+        );
+      }
+    } else if (role === 'owner' || role === 'project_manager') {
+      const hasRequestedRole = organizations.some((org: { role?: unknown }) => org.role === role);
+      if (!hasRequestedRole) {
+        const label = role === 'owner' ? 'Organization Owner' : 'Project Manager';
+        throw ApiError.forbidden(
+          `Role verification failed: ${safeUser.email} does not hold the ${label} role in any organization.`,
+          'ROLE_FORBIDDEN',
+        );
+      }
+    } else if (
+      rawOrganizations.length > 0 &&
+      !safeUser.isPlatformAdmin &&
+      organizations.length === 0
+    ) {
+      throw ApiError.forbidden(
+        'Access denied: Login is restricted to Platform Admin, Organization Owner, and Project Manager roles.',
+        'ROLE_FORBIDDEN',
+      );
+    }
+
+    await db('users').where({ id: userRow.id }).update({ last_login_at: db.fn.now() });
+
+    const tokens = await this.issueTokenPair(safeUser);
     return { user: safeUser, tokens, organizations };
   },
 
@@ -243,10 +364,14 @@ export const authService = {
     if (!userRow) {
       throw ApiError.notFound('User not found');
     }
-    const organizations = await db('organizations as o')
+    const rawOrganizations = await db('organizations as o')
       .join('organization_members as om', 'om.org_id', 'o.id')
       .where('om.user_id', userId)
       .select('o.id', 'o.name', 'o.slug', 'o.plan', 'om.role');
+
+    const organizations = rawOrganizations.filter((org: { role?: unknown }) =>
+      ALLOWED_PORTAL_ORG_ROLES.has(String(org.role)),
+    );
 
     return {
       ...toSafeUser(userRow),

@@ -1,7 +1,9 @@
 import type { BadgeProps } from '@/components/ui/Badge';
 import type { LoginRole, User, UserOrgMembership } from '@/types';
 
-export type RoleSelectionOption = LoginRole | 'auto';
+export type SignupRole = 'owner' | 'project_manager';
+export type PortalLoginRole = 'platform_admin' | SignupRole;
+export type RoleSelectionOption = PortalLoginRole;
 
 export interface RoleMetadata {
   id: LoginRole;
@@ -14,13 +16,20 @@ export interface RoleMetadata {
   permissions: string[];
 }
 
-export const ROLE_ORDER: LoginRole[] = [
-  'platform_admin',
+export const SIGNUP_ROLE_ORDER: SignupRole[] = ['owner', 'project_manager'];
+
+export const PORTAL_ROLE_ORDER: PortalLoginRole[] = [
   'owner',
   'project_manager',
-  'team_member',
-  'auditor',
+  'platform_admin',
 ];
+
+export const ROLE_ORDER: LoginRole[] = PORTAL_ROLE_ORDER;
+
+export const DEFAULT_PLATFORM_ADMIN_CREDENTIALS = {
+  email: 'admin@worksphere.io',
+  password: 'Password123!',
+} as const;
 
 export const ROLE_METADATA: Record<LoginRole, RoleMetadata> = {
   platform_admin: {
@@ -102,7 +111,7 @@ export type RoleLoginResolution =
     };
 
 /**
- * Collect distinct roles held by the user across global and tenant memberships.
+ * Collect distinct authorized portal roles held by the user across global and tenant memberships.
  */
 export function getUserAvailableRoles(user: User): LoginRole[] {
   const roles = new Set<LoginRole>();
@@ -110,13 +119,15 @@ export function getUserAvailableRoles(user: User): LoginRole[] {
     roles.add('platform_admin');
   }
   for (const org of user.organizations || []) {
-    roles.add(org.role);
+    if (PORTAL_ROLE_ORDER.includes(org.role as PortalLoginRole)) {
+      roles.add(org.role);
+    }
   }
   return ROLE_ORDER.filter((r) => roles.has(r));
 }
 
 /**
- * Build all selectable (role, workspace) session entries for a user.
+ * Build selectable (role, workspace) session entries limited to authorized portal roles.
  */
 export function buildWorkspaceRoleOptions(
   user: User,
@@ -125,7 +136,9 @@ export function buildWorkspaceRoleOptions(
   const options: WorkspaceRoleOption[] = [];
 
   if (user.isPlatformAdmin && (!filterRole || filterRole === 'platform_admin')) {
-    const primaryOrg = user.organizations?.[0] || null;
+    const primaryOrg =
+      (user.organizations || []).find((org) => org.role === 'owner' || org.role === 'project_manager') ||
+      null;
     options.push({
       key: 'platform_admin:global',
       role: 'platform_admin',
@@ -139,6 +152,7 @@ export function buildWorkspaceRoleOptions(
   }
 
   for (const org of user.organizations || []) {
+    if (org.role !== 'owner' && org.role !== 'project_manager') continue;
     if (filterRole && filterRole !== org.role) continue;
     const roleMeta = ROLE_METADATA[org.role];
     options.push({
@@ -160,30 +174,17 @@ export function buildWorkspaceRoleOptions(
  */
 export function resolveRoleLogin(
   user: User,
-  selectedRole: RoleSelectionOption,
+  selectedRole: LoginRole,
 ): RoleLoginResolution {
-  if (selectedRole === 'auto') {
-    const options = buildWorkspaceRoleOptions(user);
-    if (options.length === 0) {
-      return {
-        status: 'authorized',
-        activeRole: 'team_member',
-        org: null,
-        redirectTo: '/dashboard',
-      };
-    }
-    if (options.length === 1) {
-      return {
-        status: 'authorized',
-        activeRole: options[0].role,
-        org: options[0].org,
-        redirectTo: options[0].redirectTo,
-      };
-    }
-    return { status: 'select_workspace', options };
-  }
-
   const availableRoles = getUserAvailableRoles(user);
+
+  if (!PORTAL_ROLE_ORDER.includes(selectedRole as PortalLoginRole)) {
+    return {
+      status: 'role_mismatch',
+      error: 'Access is restricted to Platform Admin, Organization Owner, and Project Manager roles.',
+      availableRoles,
+    };
+  }
 
   if (selectedRole === 'platform_admin') {
     if (!user.isPlatformAdmin) {
@@ -193,10 +194,13 @@ export function resolveRoleLogin(
         availableRoles,
       };
     }
+    const primaryOrg =
+      (user.organizations || []).find((org) => org.role === 'owner' || org.role === 'project_manager') ||
+      null;
     return {
       status: 'authorized',
       activeRole: 'platform_admin',
-      org: user.organizations?.[0] || null,
+      org: primaryOrg,
       redirectTo: ROLE_METADATA.platform_admin.defaultRoute,
     };
   }
@@ -235,19 +239,19 @@ export function getEffectiveRole(
   if (activeRole === 'platform_admin' && user.isPlatformAdmin) {
     return 'platform_admin';
   }
-  if (currentOrg) {
+  if (currentOrg && ROLE_ORDER.includes(currentOrg.role)) {
     return currentOrg.role;
   }
   if (user.isPlatformAdmin) {
     return 'platform_admin';
   }
-  return activeRole || 'team_member';
+  return activeRole && ROLE_ORDER.includes(activeRole) ? activeRole : null;
 }
 
 const ROUTE_ROLE_RULES: Array<{ prefix: string; roles: LoginRole[] }> = [
   { prefix: '/admin', roles: ['platform_admin'] },
   { prefix: '/workflows', roles: ['platform_admin', 'owner', 'project_manager'] },
-  { prefix: '/audit-logs', roles: ['platform_admin', 'owner', 'auditor'] },
+  { prefix: '/audit-logs', roles: ['platform_admin', 'owner'] },
 ];
 
 /**

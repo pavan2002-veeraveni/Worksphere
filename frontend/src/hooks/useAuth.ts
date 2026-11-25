@@ -9,6 +9,7 @@ import {
   register as registerApi,
   RegisterData,
 } from '@/lib/auth';
+import type { PortalLoginRole } from '@/lib/roles';
 import { clearAuth, setAuthSession, setUser } from '@/store/slices/authSlice';
 import type { LoginRole, User, UserOrgMembership } from '@/types';
 
@@ -30,8 +31,15 @@ export function useCurrentUser() {
 
 export function useLogin() {
   return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      loginApi(email, password),
+    mutationFn: ({
+      email,
+      password,
+      role,
+    }: {
+      email: string;
+      password: string;
+      role?: PortalLoginRole;
+    }) => loginApi(email, password, role),
   });
 }
 
@@ -55,14 +63,20 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: (data: RegisterData) => registerApi(data),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      const matchingOrg =
+        data.user.organizations?.find((org) => org.role === variables.role) ||
+        data.user.organizations?.[0] ||
+        null;
+      const activeRole: LoginRole = matchingOrg?.role || variables.role;
       dispatch(
         setAuthSession({
           user: data.user,
-          currentOrg: null,
-          activeRole: data.user.isPlatformAdmin ? 'platform_admin' : 'team_member',
+          currentOrg: matchingOrg,
+          activeRole,
         }),
       );
+      queryClient.setQueryData(['currentUser'], data.user);
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
   });
