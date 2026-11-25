@@ -1,0 +1,61 @@
+# Production Overlay for Docker Compose
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Enforces restricted DB/Redis internal-only networking, production build targets, and HTTPS nginx.
+
+services:
+  postgres:
+    ports: [] # Do NOT expose PostgreSQL publicly in production
+    networks:
+      - worksphere-internal
+
+  redis:
+    ports: [] # Do NOT expose Redis publicly in production
+    networks:
+      - worksphere-internal
+
+  api:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+      DATABASE_SSL: "true"
+    ports: [] # Traffic routed strictly via Nginx reverse proxy
+    volumes:
+      - upload_data:/app/uploads
+    networks:
+      - worksphere-internal
+      - worksphere-edge
+
+  worker:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+    networks:
+      - worksphere-internal
+
+  python-service:
+    ports: [] # Internal analytics microservice only
+    networks:
+      - worksphere-internal
+
+  frontend:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+    ports: [] # Routed via Nginx
+    volumes: []
+    networks:
+      - worksphere-edge
+
+  nginx:
+    networks:
+      - worksphere-edge
+
+networks:
+  worksphere-internal:
+    driver: bridge
+    internal: true
+  worksphere-edge:
+    driver: bridge

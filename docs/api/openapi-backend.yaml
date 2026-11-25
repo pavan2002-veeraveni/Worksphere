@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: WorkSphere Multi-Tenant Platform API
+  version: 1.0.0
+  description: >
+    Complete REST API specification for WorkSphere Core API (Node.js/Express) and
+    Analytics microservice (Python/FastAPI). Covers JWT auth, refresh rotation,
+    tenant-scoped organizations, teams, projects, milestones, optimistic-locked tasks,
+    comments, attachments, workflow rules, audit logs, webhooks, and billing.
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Local Express Core API v1
+  - url: https://api.worksphere.example.com/api/v1
+    description: Production Express Core API v1
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    orgHeader:
+      type: apiKey
+      in: header
+      name: X-Org-ID
+  schemas:
+    StandardError:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          properties:
+            code: { type: string, example: OPTIMISTIC_LOCK_CONFLICT }
+            message: { type: string }
+            details: { type: object }
+        requestId: { type: string, format: uuid }
+    PaginationMeta:
+      type: object
+      properties:
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total: { type: integer, example: 42 }
+        totalPages: { type: integer, example: 3 }
+security:
+  - bearerAuth: []
+    orgHeader: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, firstName, lastName]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                firstName: { type: string }
+                lastName: { type: string }
+      responses:
+        '201': { description: Created }
+        '400': { description: Validation error }
+        '409': { description: Email already exists }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive JWT access + refresh tokens
+      security: []
+      responses:
+        '200': { description: Authenticated }
+        '401': { description: Invalid credentials }
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token (with reuse detection)
+      security: []
+      responses:
+        '200': { description: New token pair }
+        '401': { description: Invalid or reused refresh token }
+  /organizations:
+    get:
+      tags: [Organizations]
+      summary: List organizations for current user
+      responses:
+        '200': { description: List of organizations }
+    post:
+      tags: [Organizations]
+      summary: Create organization and assign creator as owner
+      responses:
+        '201': { description: Organization created }
+  /projects:
+    get:
+      tags: [Projects]
+      summary: Paginated tenant projects
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        '200': { description: Paginated project list }
+    post:
+      tags: [Projects]
+      summary: Create project (owner or project_manager)
+      responses:
+        '201': { description: Project created }
+        '403': { description: Role forbidden }
+  /tasks/{taskId}:
+    put:
+      tags: [Tasks]
+      summary: Update task with optimistic concurrency check (`version`)
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                title: { type: string }
+                status: { type: string, enum: [todo, in_progress, in_review, done, cancelled] }
+                version: { type: integer, example: 1 }
+      responses:
+        '200': { description: Task updated and version incremented }
+        '409': { description: Optimistic lock conflict }
+  /audit-log:
+    get:
+      tags: [Compliance]
+      summary: Query immutable tenant audit log (owner or auditor)
+      responses:
+        '200': { description: Paginated audit events }
+        '403': { description: Insufficient role }
+  /integrations/stripe/webhook:
+    post:
+      tags: [Webhooks]
+      summary: Stripe webhook receiver with HMAC signature verification & idempotency
+      security: []
+      parameters:
+        - in: header
+          name: Stripe-Signature
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Event processed or deduplicated }
+        '400': { description: Invalid signature }

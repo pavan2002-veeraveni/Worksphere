@@ -1,0 +1,115 @@
+{
+  "info": {
+    "name": "WorkSphere Platform API v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "End-to-end API collection for WorkSphere multi-tenant backend and FastAPI analytics service."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api/v1" },
+    { "key": "analyticsUrl", "value": "http://localhost:8000/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "orgId", "value": "b0000000-0000-0000-0000-000000000001" },
+    { "key": "projectId", "value": "d0000000-0000-0000-0000-000000000001" },
+    { "key": "taskId", "value": "f0000000-0000-0000-0000-000000000001" },
+    { "key": "analyticsApiKey", "value": "ws-analytics-default-key" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (Seed User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.success) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.tokens.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', json.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"alice@acme.com\",\"password\":\"Password123!\"}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/refresh-token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refreshToken\":\"{{refreshToken}}\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects & Tasks",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "X-Org-ID", "value": "{{orgId}}" }
+            ],
+            "url": "{{baseUrl}}/projects?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Update Task (Optimistic Locking)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "X-Org-ID", "value": "{{orgId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/tasks/{{taskId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"in_progress\",\"version\":1}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics (FastAPI)",
+      "item": [
+        {
+          "name": "Project Health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-API-Key", "value": "{{analyticsApiKey}}" }],
+            "url": "{{analyticsUrl}}/analytics/projects/{{projectId}}/health?org_id={{orgId}}"
+          }
+        },
+        {
+          "name": "Org Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-API-Key", "value": "{{analyticsApiKey}}" }],
+            "url": "{{analyticsUrl}}/analytics/summary?org_id={{orgId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
