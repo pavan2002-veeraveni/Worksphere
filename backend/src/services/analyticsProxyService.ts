@@ -21,9 +21,16 @@ async function callAnalytics<T>(path: string, init?: RequestInit): Promise<T> {
       });
 
       if (!response.ok) {
-        const body = await response.json().catch(() => ({ detail: response.statusText }));
+        const rawBody = await response.json().catch(() => null);
+        const detail =
+          rawBody &&
+          typeof rawBody === 'object' &&
+          'detail' in rawBody &&
+          typeof rawBody.detail === 'string'
+            ? rawBody.detail
+            : response.statusText;
         if (response.status >= 400 && response.status < 500) {
-          throw new ApiError(response.status, 'ANALYTICS_ERROR', body.detail || 'Analytics error');
+          throw new ApiError(response.status, 'ANALYTICS_ERROR', detail || 'Analytics error');
         }
         throw new Error(`Analytics service returned HTTP ${response.status}`);
       }
