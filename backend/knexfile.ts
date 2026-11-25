@@ -72,23 +72,31 @@ const config: Record<string, Knex.Config> = {
 
   production: {
     ...defaults,
-    connection: process.env.DATABASE_URL
-      ? {
-          connectionString: process.env.DATABASE_URL,
-          ssl: { rejectUnauthorized: true },
-        }
-      : {
-          host: process.env.DATABASE_HOST,
-          port: Number(process.env.DATABASE_PORT) || 5432,
-          database: process.env.DATABASE_NAME || 'worksphere',
-          user: process.env.DATABASE_USER,
-          password: process.env.DATABASE_PASSWORD,
-          ssl: { rejectUnauthorized: true },
-        },
+    connection:
+      process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || process.env.POSTGRES_URL
+        ? {
+            connectionString:
+              process.env.DATABASE_URL_UNPOOLED ||
+              process.env.DATABASE_URL ||
+              process.env.POSTGRES_URL,
+            ssl: {
+              rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
+            },
+          }
+        : {
+            host: process.env.DATABASE_HOST,
+            port: Number(process.env.DATABASE_PORT) || 5432,
+            database: process.env.DATABASE_NAME || 'worksphere',
+            user: process.env.DATABASE_USER,
+            password: process.env.DATABASE_PASSWORD,
+            ssl: {
+              rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
+            },
+          },
     pool: {
       ...defaults.pool,
-      min: 5,
-      max: 30,
+      min: 2,
+      max: 15,
     },
   },
 };

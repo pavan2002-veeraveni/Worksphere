@@ -13,11 +13,17 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://worksphere_user:devpassword@localhost:5432/worksphere",
-        validation_alias=AliasChoices("DATABASE_URL", "ANALYTICS_DATABASE_URL", "WORKSPHERE_DATABASE_URL"),
+        validation_alias=AliasChoices(
+            "DATABASE_URL",
+            "DATABASE_URL_POOLED",
+            "POSTGRES_URL",
+            "ANALYTICS_DATABASE_URL",
+            "WORKSPHERE_DATABASE_URL",
+        ),
     )
     REDIS_URL: str = Field(
         default="redis://localhost:6379/0",
-        validation_alias=AliasChoices("REDIS_URL", "WORKSPHERE_REDIS_URL"),
+        validation_alias=AliasChoices("REDIS_URL", "KV_URL", "WORKSPHERE_REDIS_URL"),
     )
 
     API_KEY: str = Field(

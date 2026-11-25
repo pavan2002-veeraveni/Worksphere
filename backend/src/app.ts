@@ -23,7 +23,13 @@ export function createApp(): Express {
   app.use(helmet());
   app.use(
     cors({
-      origin: config.appUrl,
+      origin: (origin, callback) => {
+        if (!origin || config.corsOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: true,
       exposedHeaders: ['X-Request-ID'],
     }),

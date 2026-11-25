@@ -55,9 +55,11 @@ async function gracefulShutdown(signal: string): Promise<void> {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-bootstrap().catch((err) => {
-  logger.error('Failed to start server', { error: (err as Error).message });
-  process.exit(1);
-});
+if (!config.isVercel) {
+  bootstrap().catch((err) => {
+    logger.error('Failed to start server', { error: (err as Error).message });
+    process.exit(1);
+  });
+}
 
 export default server;

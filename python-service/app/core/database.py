@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,17 +18,46 @@ _engine: Any = None
 _session_factory: Any = None
 
 
+def _prepare_async_database_url(raw_url: str) -> tuple[str, dict[str, Any]]:
+    """Normalize PostgreSQL URLs for asyncpg and translate sslmode query flags."""
+    url = raw_url.strip()
+    if url.startswith("postgres://"):
+        url = "postgresql+asyncpg://" + url[len("postgres://") :]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+
+    connect_args: dict[str, Any] = {}
+    parsed = urlparse(url)
+    if parsed.query:
+        kept_params: list[tuple[str, str]] = []
+        for k, v in parse_qsl(parsed.query, keep_blank_values=True):
+            lower_k = k.lower()
+            if lower_k == "sslmode":
+                if v.lower() in {"require", "verify-ca", "verify-full", "prefer"}:
+                    connect_args["ssl"] = "require"
+            elif lower_k == "channel_binding":
+                continue
+            else:
+                kept_params.append((k, v))
+        url = urlunparse(parsed._replace(query=urlencode(kept_params)))
+
+    return url, connect_args
+
+
 def get_engine() -> AsyncEngine:
     """Lazily create and return the async SQLAlchemy engine."""
     global _engine
     if _engine is None:
         from sqlalchemy.ext.asyncio import create_async_engine
 
-        kwargs: dict = {"echo": False, "pool_pre_ping": True}
-        if not settings.DATABASE_URL.startswith("sqlite"):
+        url, connect_args = _prepare_async_database_url(settings.DATABASE_URL)
+        kwargs: dict[str, Any] = {"echo": False, "pool_pre_ping": True}
+        if connect_args:
+            kwargs["connect_args"] = connect_args
+        if not url.startswith("sqlite"):
             kwargs["pool_size"] = settings.DB_POOL_SIZE
             kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
-        _engine = create_async_engine(settings.DATABASE_URL, **kwargs)
+        _engine = create_async_engine(url, **kwargs)
     return _engine
 
 

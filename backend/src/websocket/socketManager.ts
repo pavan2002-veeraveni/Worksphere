@@ -16,7 +16,7 @@ interface SocketAuthPayload {
 export function initializeSocketIO(httpServer: HttpServer): Server {
   io = new Server(httpServer, {
     cors: {
-      origin: config.appUrl,
+      origin: config.corsOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },

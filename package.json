@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Multi-Tenant Project Management & Workflow Automation Platform",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "workspaces": [
     "frontend",
     "backend"

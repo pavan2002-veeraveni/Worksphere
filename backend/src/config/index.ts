@@ -1,30 +1,70 @@
 import dotenv from 'dotenv';
+import os from 'os';
 import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
+const databaseUrl =
+  process.env.DATABASE_URL_POOLED ||
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  '';
+
+const redisUrl = process.env.REDIS_URL || process.env.KV_URL || '';
+
+const isVercel = Boolean(process.env.VERCEL);
+
+function buildAllowedOrigins(): string[] {
+  const origins = new Set<string>();
+  const rawAppUrls = (process.env.APP_URL || 'http://localhost:3000').split(',');
+  for (const item of rawAppUrls) {
+    const trimmed = item.trim();
+    if (trimmed) origins.add(trimmed);
+  }
+  if (process.env.VERCEL_URL) {
+    origins.add(`https://${process.env.VERCEL_URL}`);
+  }
+  if (process.env.VERCEL_BRANCH_URL) {
+    origins.add(`https://${process.env.VERCEL_BRANCH_URL}`);
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    origins.add(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+  }
+  return Array.from(origins);
+}
+
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
+  isVercel,
   port: Number(process.env.PORT) || 4000,
   appUrl: process.env.APP_URL || 'http://localhost:3000',
-  apiUrl: process.env.API_URL || 'http://localhost:4000',
+  corsOrigins: buildAllowedOrigins(),
+  apiUrl:
+    process.env.API_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:4000'),
 
   database: {
+    connectionString: databaseUrl,
     host: process.env.DATABASE_HOST || process.env.DB_HOST || 'localhost',
     port: Number(process.env.DATABASE_PORT || process.env.DB_PORT) || 5432,
     name: process.env.DATABASE_NAME || process.env.DB_NAME || 'worksphere',
     user: process.env.DATABASE_USER || process.env.DB_USER || 'worksphere_user',
     password: process.env.DATABASE_PASSWORD || process.env.DB_PASSWORD || 'devpassword',
-    ssl: process.env.DATABASE_SSL === 'true',
-    poolMin: Number(process.env.DATABASE_POOL_MIN) || 2,
-    poolMax: Number(process.env.DATABASE_POOL_MAX) || 10,
+    ssl:
+      process.env.DATABASE_SSL === 'true' ||
+      (Boolean(databaseUrl) && !/localhost|127\.0\.0\.1/.test(databaseUrl)),
+    poolMin: Number(process.env.DATABASE_POOL_MIN) || (isVercel ? 0 : 2),
+    poolMax: Number(process.env.DATABASE_POOL_MAX) || (isVercel ? 5 : 10),
   },
 
   redis: {
+    url: redisUrl,
     host: process.env.REDIS_HOST || 'localhost',
     port: Number(process.env.REDIS_PORT) || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
-    enabled: process.env.REDIS_ENABLED !== 'false',
+    enabled:
+      process.env.REDIS_ENABLED !== 'false' &&
+      (!isVercel || Boolean(redisUrl || process.env.REDIS_HOST)),
   },
 
   jwt: {
@@ -48,7 +88,9 @@ export const config = {
     accessKey: process.env.S3_ACCESS_KEY || '',
     secretKey: process.env.S3_SECRET_KEY || '',
     region: process.env.S3_REGION || 'us-east-1',
-    localUploadDir: process.env.LOCAL_UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
+    localUploadDir:
+      process.env.LOCAL_UPLOAD_DIR ||
+      (isVercel ? path.join(os.tmpdir(), 'worksphere-uploads') : path.resolve(__dirname, '../../uploads')),
   },
 
   stripe: {
@@ -60,7 +102,7 @@ export const config = {
   analytics: {
     url: process.env.PYTHON_SERVICE_URL || 'http://localhost:8000',
     apiKey: process.env.ANALYTICS_SERVICE_API_KEY || 'ws-analytics-default-key',
-    timeoutMs: Number(process.env.ANALYTICS_TIMEOUT_MS) || 5000,
+    timeoutMs: Number(process.env.ANALYTICS_TIMEOUT_MS) || (isVercel ? 10000 : 5000),
   },
 
   logging: {

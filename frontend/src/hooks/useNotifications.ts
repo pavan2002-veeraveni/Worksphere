@@ -7,6 +7,14 @@ import type { Notification } from '@/types';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000';
 
+function resolveSocketTarget(rawUrl: string): { url?: string; usePolling: boolean } {
+  if (rawUrl === '/' || rawUrl === 'same-origin') {
+    return { url: undefined, usePolling: false };
+  }
+  const isLocalHttp = rawUrl.startsWith('http://localhost') || rawUrl.startsWith('http://127.0.0.1');
+  return { url: rawUrl, usePolling: isLocalHttp };
+}
+
 export function useNotifications(orgId?: string) {
   return useQuery({
     queryKey: ['notifications', orgId],
@@ -50,10 +58,13 @@ export function useRealTimeNotifications(orgId?: string) {
     const tokens = getStoredTokens();
     if (!tokens || !orgId) return;
 
-    const socket = io(WS_URL, {
+    const { url, usePolling } = resolveSocketTarget(WS_URL);
+    const socketOptions = {
       auth: { token: tokens.accessToken, orgId },
-      transports: ['websocket', 'polling'],
-    });
+      transports: usePolling ? ['websocket', 'polling'] : ['websocket'],
+    };
+
+    const socket = url ? io(url, socketOptions) : io(socketOptions);
 
     socket.on('notification:new', () => {
       qc.invalidateQueries({ queryKey: ['notifications'] });

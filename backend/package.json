@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "WorkSphere - Multi-tenant Project Management SaaS Platform",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
