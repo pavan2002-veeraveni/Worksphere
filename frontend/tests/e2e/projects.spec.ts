@@ -45,7 +45,7 @@ test.describe('Projects & Concurrent Task Flows', () => {
       });
     });
 
-    await page.route('**/api/v1/projects*', async (route) => {
+    await page.route('**/api/v1/projects**', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 201,
@@ -64,7 +64,7 @@ test.describe('Projects & Concurrent Task Flows', () => {
       }
     });
 
-    await page.route('**/api/v1/tasks*', async (route) => {
+    await page.route('**/api/v1/tasks**', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -72,17 +72,25 @@ test.describe('Projects & Concurrent Task Flows', () => {
       });
     });
 
-    await page.route('**/api/v1/notifications*', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { unreadCount: 0 } }) });
+    await page.route('**/api/v1/notifications**', async (route) => {
+      const isUnreadCount = route.request().url().includes('unread-count');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: isUnreadCount ? { unreadCount: 0 } : [],
+        }),
+      });
     });
 
-    await page.route('**/api/v1/activity*', async (route) => {
+    await page.route('**/api/v1/activity**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) });
     });
 
     await page.goto('/login');
     await page.getByLabel('Email').fill('alice@acme.com');
-    await page.getByLabel('Password').fill('Password123!');
+    await page.getByLabel('Password', { exact: true }).fill('Password123!');
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
