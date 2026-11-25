@@ -3,7 +3,8 @@
   "services": {
     "frontend": {
       "root": "frontend/",
-      "framework": "nextjs"
+      "framework": "nextjs",
+      "buildCommand": "node ../scripts/vercel-db-bootstrap.js && npm run build"
     },
     "backend": {
       "root": "backend/",
