@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Authentication & Protected Routes', () => {
-  test('redirects unauthenticated visitors to /login and pre-fills Platform Admin defaults', async ({ page }) => {
+  test('redirects unauthenticated visitors to /login with all 5 login roles and Platform Admin defaults', async ({ page }) => {
     await page.goto('/projects');
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
@@ -11,6 +11,8 @@ test.describe('Authentication & Protected Routes', () => {
       'Organization Owner',
       'Project Manager',
       'Platform Admin',
+      'Team Member',
+      'Auditor',
     ]);
 
     await roleSelect.selectOption('platform_admin');

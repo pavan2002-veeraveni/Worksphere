@@ -100,35 +100,49 @@ describe('Authentication, RBAC & Token Rotation API (/api/v1/auth)', () => {
     expect(pmReg.status).toBe(201);
     expect(pmReg.body.data.organizations[0].role).toBe('project_manager');
 
-    // Login fails if selecting a role not held by user or disallowed portal role
+    // Login fails if selecting a role not held by user
     const wrongRoleLogin = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: 'pm.lead@example.com', password: 'Password123!', role: 'owner' });
     expect(wrongRoleLogin.status).toBe(403);
     expect(wrongRoleLogin.body.error.code).toBe('ROLE_FORBIDDEN');
 
-    const disallowedPortalRole = await request(app)
-      .post('/api/v1/auth/login')
-      .send({ email: 'pm.lead@example.com', password: 'Password123!', role: 'team_member' });
-    expect(disallowedPortalRole.status).toBe(400);
-
-    // Team-member-only user cannot log into portal even without explicit role parameter
+    // Team Member and Auditor roles are allowed on login when user holds that membership
     const memberReg = await request(app).post('/api/v1/auth/register').send({
       email: 'member.only@example.com',
       password: 'Password123!',
     });
-    store.organization_members.push({
-      id: 'mem-team-only',
-      org_id: pmReg.body.data.organizations[0].id,
-      user_id: memberReg.body.data.user.id,
-      role: 'team_member',
-    });
+    store.organization_members.push(
+      {
+        id: 'mem-team-only',
+        org_id: pmReg.body.data.organizations[0].id,
+        user_id: memberReg.body.data.user.id,
+        role: 'team_member',
+      },
+      {
+        id: 'mem-auditor-pm',
+        org_id: pmReg.body.data.organizations[0].id,
+        user_id: pmReg.body.data.user.id,
+        role: 'auditor',
+      },
+    );
 
     const memberLogin = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: 'member.only@example.com', password: 'Password123!' });
-    expect(memberLogin.status).toBe(403);
-    expect(memberLogin.body.error.code).toBe('ROLE_FORBIDDEN');
+      .send({ email: 'member.only@example.com', password: 'Password123!', role: 'team_member' });
+    expect(memberLogin.status).toBe(200);
+    expect(memberLogin.body.data.organizations[0].role).toBe('team_member');
+
+    const auditorLogin = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'pm.lead@example.com', password: 'Password123!', role: 'auditor' });
+    expect(auditorLogin.status).toBe(200);
+
+    const deniedRoleForMember = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'member.only@example.com', password: 'Password123!', role: 'auditor' });
+    expect(deniedRoleForMember.status).toBe(403);
+    expect(deniedRoleForMember.body.error.code).toBe('ROLE_FORBIDDEN');
   });
 
   it('rejects invalid input and bad credentials without leaking stack traces', async () => {

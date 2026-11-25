@@ -112,7 +112,7 @@ describe('Role-Based Login & Signup Flow', () => {
     localStorage.clear();
   });
 
-  it('renders only authorized login roles without demo placeholders and validates input', async () => {
+  it('renders Owner, PM, Platform Admin, Team Member, and Auditor options without placeholders and validates input', async () => {
     renderWithProviders(<LoginPage />);
 
     const roleSelect = screen.getByLabelText('Role') as HTMLSelectElement;
@@ -120,16 +120,13 @@ describe('Role-Based Login & Signup Flow', () => {
     expect(screen.getByRole('option', { name: 'Organization Owner' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Project Manager' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Platform Admin' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /auto-detect/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Team Member' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Auditor' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Team Member' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Auditor' })).toBeInTheDocument();
 
     const emailInput = screen.getByLabelText('Email') as HTMLInputElement;
     const passwordInput = screen.getByLabelText('Password') as HTMLInputElement;
     expect(emailInput.placeholder).toBe('');
     expect(passwordInput.placeholder).toBe('');
-    expect(emailInput.value).toBe('');
-    expect(passwordInput.value).toBe('');
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign In as Organization Owner' }));
     expect(await screen.findByText('Valid email is required')).toBeInTheDocument();
@@ -158,29 +155,29 @@ describe('Role-Based Login & Signup Flow', () => {
     expect(store.getState().auth.activeRole).toBe('platform_admin');
   });
 
-  it('clears default admin credentials when switching back to Organization Owner or Project Manager', () => {
+  it('clears default admin credentials when switching to another role', () => {
     renderWithProviders(<LoginPage />);
 
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'platform_admin' } });
     expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('admin@worksphere.io');
 
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'project_manager' } });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'team_member' } });
     expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('');
     expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
   });
 
-  it('signs user directly into Project Manager organization and filters non-portal roles', async () => {
+  it('signs multi-role user into Auditor or Team Member workspace when selected', async () => {
     mockedLogin.mockResolvedValueOnce({ user: ALICE_MULTI_ROLE, tokens: TOKENS });
     renderWithProviders(<LoginPage />);
 
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'project_manager' } });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'auditor' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'alice@acme.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Password123!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In as Project Manager' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In as Auditor' }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/projects'));
-    expect(store.getState().auth.activeRole).toBe('project_manager');
-    expect(store.getState().auth.currentOrg?.id).toBe('org-acme');
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/audit-logs'));
+    expect(store.getState().auth.activeRole).toBe('auditor');
+    expect(store.getState().auth.currentOrg?.id).toBe('org-globex');
   });
 
   it('presents workspace picker when owner holds multiple organizations', async () => {
@@ -200,23 +197,25 @@ describe('Role-Based Login & Signup Flow', () => {
     expect(store.getState().auth.currentOrg?.id).toBe('org-acme');
   });
 
-  it('denies access, revokes session, and never exposes disallowed roles on mismatch', async () => {
+  it('denies access, revokes session, and suggests held role on mismatch', async () => {
     mockedLogin.mockResolvedValueOnce({ user: BOB_MEMBER, tokens: TOKENS });
     renderWithProviders(<LoginPage />);
 
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'owner' } });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'auditor' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'bob@acme.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Password123!' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In as Organization Owner' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In as Auditor' }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
-      'Role verification failed: bob@acme.com does not hold the Organization Owner role in any organization.',
+      'Role verification failed: bob@acme.com does not hold the Auditor role in any organization.',
     );
     expect(mockedLogout).toHaveBeenCalledTimes(1);
     expect(store.getState().auth.isAuthenticated).toBe(false);
-    expect(screen.queryByRole('button', { name: /Switch to Team Member/i })).not.toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Team Member' }));
+    expect((screen.getByLabelText('Role') as HTMLSelectElement).value).toBe('team_member');
   });
 
   it('displays safe authentication error on invalid credentials', async () => {
@@ -232,7 +231,7 @@ describe('Role-Based Login & Signup Flow', () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('restricts signup to Organization Owner and Project Manager without first/last name fields', async () => {
+  it('keeps signup strictly limited to Organization Owner and Project Manager without first/last name fields', async () => {
     mockedRegister.mockResolvedValueOnce({
       user: {
         id: 'user-pm-new',

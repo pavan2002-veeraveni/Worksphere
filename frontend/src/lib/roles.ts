@@ -2,7 +2,7 @@ import type { BadgeProps } from '@/components/ui/Badge';
 import type { LoginRole, User, UserOrgMembership } from '@/types';
 
 export type SignupRole = 'owner' | 'project_manager';
-export type PortalLoginRole = 'platform_admin' | SignupRole;
+export type PortalLoginRole = LoginRole;
 export type RoleSelectionOption = PortalLoginRole;
 
 export interface RoleMetadata {
@@ -22,6 +22,8 @@ export const PORTAL_ROLE_ORDER: PortalLoginRole[] = [
   'owner',
   'project_manager',
   'platform_admin',
+  'team_member',
+  'auditor',
 ];
 
 export const ROLE_ORDER: LoginRole[] = PORTAL_ROLE_ORDER;
@@ -111,7 +113,7 @@ export type RoleLoginResolution =
     };
 
 /**
- * Collect distinct authorized portal roles held by the user across global and tenant memberships.
+ * Collect distinct roles held by the user across global and tenant memberships.
  */
 export function getUserAvailableRoles(user: User): LoginRole[] {
   const roles = new Set<LoginRole>();
@@ -119,7 +121,7 @@ export function getUserAvailableRoles(user: User): LoginRole[] {
     roles.add('platform_admin');
   }
   for (const org of user.organizations || []) {
-    if (PORTAL_ROLE_ORDER.includes(org.role as PortalLoginRole)) {
+    if (PORTAL_ROLE_ORDER.includes(org.role)) {
       roles.add(org.role);
     }
   }
@@ -127,7 +129,7 @@ export function getUserAvailableRoles(user: User): LoginRole[] {
 }
 
 /**
- * Build selectable (role, workspace) session entries limited to authorized portal roles.
+ * Build selectable (role, workspace) session entries across authorized portal roles.
  */
 export function buildWorkspaceRoleOptions(
   user: User,
@@ -136,9 +138,7 @@ export function buildWorkspaceRoleOptions(
   const options: WorkspaceRoleOption[] = [];
 
   if (user.isPlatformAdmin && (!filterRole || filterRole === 'platform_admin')) {
-    const primaryOrg =
-      (user.organizations || []).find((org) => org.role === 'owner' || org.role === 'project_manager') ||
-      null;
+    const primaryOrg = user.organizations?.[0] || null;
     options.push({
       key: 'platform_admin:global',
       role: 'platform_admin',
@@ -152,7 +152,6 @@ export function buildWorkspaceRoleOptions(
   }
 
   for (const org of user.organizations || []) {
-    if (org.role !== 'owner' && org.role !== 'project_manager') continue;
     if (filterRole && filterRole !== org.role) continue;
     const roleMeta = ROLE_METADATA[org.role];
     options.push({
@@ -178,10 +177,10 @@ export function resolveRoleLogin(
 ): RoleLoginResolution {
   const availableRoles = getUserAvailableRoles(user);
 
-  if (!PORTAL_ROLE_ORDER.includes(selectedRole as PortalLoginRole)) {
+  if (!PORTAL_ROLE_ORDER.includes(selectedRole)) {
     return {
       status: 'role_mismatch',
-      error: 'Access is restricted to Platform Admin, Organization Owner, and Project Manager roles.',
+      error: `Invalid role selected: ${selectedRole}.`,
       availableRoles,
     };
   }
@@ -194,9 +193,7 @@ export function resolveRoleLogin(
         availableRoles,
       };
     }
-    const primaryOrg =
-      (user.organizations || []).find((org) => org.role === 'owner' || org.role === 'project_manager') ||
-      null;
+    const primaryOrg = user.organizations?.[0] || null;
     return {
       status: 'authorized',
       activeRole: 'platform_admin',
@@ -239,19 +236,19 @@ export function getEffectiveRole(
   if (activeRole === 'platform_admin' && user.isPlatformAdmin) {
     return 'platform_admin';
   }
-  if (currentOrg && ROLE_ORDER.includes(currentOrg.role)) {
+  if (currentOrg) {
     return currentOrg.role;
   }
   if (user.isPlatformAdmin) {
     return 'platform_admin';
   }
-  return activeRole && ROLE_ORDER.includes(activeRole) ? activeRole : null;
+  return activeRole || 'team_member';
 }
 
 const ROUTE_ROLE_RULES: Array<{ prefix: string; roles: LoginRole[] }> = [
   { prefix: '/admin', roles: ['platform_admin'] },
   { prefix: '/workflows', roles: ['platform_admin', 'owner', 'project_manager'] },
-  { prefix: '/audit-logs', roles: ['platform_admin', 'owner'] },
+  { prefix: '/audit-logs', roles: ['platform_admin', 'owner', 'auditor'] },
 ];
 
 /**

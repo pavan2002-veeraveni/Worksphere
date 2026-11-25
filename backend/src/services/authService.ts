@@ -21,9 +21,9 @@ export interface TokenPair {
 }
 
 export type SignupRole = 'owner' | 'project_manager';
-export type PortalLoginRole = 'platform_admin' | SignupRole;
+export type PortalLoginRole = 'platform_admin' | SignupRole | 'team_member' | 'auditor';
 
-const ALLOWED_PORTAL_ORG_ROLES = new Set<string>(['owner', 'project_manager']);
+const ALLOWED_SIGNUP_ROLES = new Set<string>(['owner', 'project_manager']);
 
 function slugify(name: string): string {
   return name
@@ -124,7 +124,7 @@ export const authService = {
     const db = getDb();
     const normalizedEmail = data.email.toLowerCase().trim();
 
-    if (data.role !== undefined && !ALLOWED_PORTAL_ORG_ROLES.has(data.role)) {
+    if (data.role !== undefined && !ALLOWED_SIGNUP_ROLES.has(data.role)) {
       throw ApiError.forbidden(
         'Signup access is restricted to Organization Owner and Project Manager roles',
         'SIGNUP_ROLE_FORBIDDEN',
@@ -217,14 +217,17 @@ export const authService = {
     }
 
     const safeUser = toSafeUser(userRow);
-    const rawOrganizations = await db('organizations as o')
+    const organizations = await db('organizations as o')
       .join('organization_members as om', 'om.org_id', 'o.id')
       .where('om.user_id', safeUser.id)
       .select('o.id', 'o.name', 'o.slug', 'o.plan', 'om.role');
 
-    const organizations = rawOrganizations.filter((org: { role?: unknown }) =>
-      ALLOWED_PORTAL_ORG_ROLES.has(String(org.role)),
-    );
+    const orgRoleLabels: Record<Exclude<PortalLoginRole, 'platform_admin'>, string> = {
+      owner: 'Organization Owner',
+      project_manager: 'Project Manager',
+      team_member: 'Team Member',
+      auditor: 'Auditor',
+    };
 
     if (role === 'platform_admin') {
       if (!safeUser.isPlatformAdmin) {
@@ -233,24 +236,15 @@ export const authService = {
           'ROLE_FORBIDDEN',
         );
       }
-    } else if (role === 'owner' || role === 'project_manager') {
+    } else if (role) {
       const hasRequestedRole = organizations.some((org: { role?: unknown }) => org.role === role);
       if (!hasRequestedRole) {
-        const label = role === 'owner' ? 'Organization Owner' : 'Project Manager';
+        const label = orgRoleLabels[role] || role;
         throw ApiError.forbidden(
           `Role verification failed: ${safeUser.email} does not hold the ${label} role in any organization.`,
           'ROLE_FORBIDDEN',
         );
       }
-    } else if (
-      rawOrganizations.length > 0 &&
-      !safeUser.isPlatformAdmin &&
-      organizations.length === 0
-    ) {
-      throw ApiError.forbidden(
-        'Access denied: Login is restricted to Platform Admin, Organization Owner, and Project Manager roles.',
-        'ROLE_FORBIDDEN',
-      );
     }
 
     await db('users').where({ id: userRow.id }).update({ last_login_at: db.fn.now() });
@@ -364,14 +358,10 @@ export const authService = {
     if (!userRow) {
       throw ApiError.notFound('User not found');
     }
-    const rawOrganizations = await db('organizations as o')
+    const organizations = await db('organizations as o')
       .join('organization_members as om', 'om.org_id', 'o.id')
       .where('om.user_id', userId)
       .select('o.id', 'o.name', 'o.slug', 'o.plan', 'om.role');
-
-    const organizations = rawOrganizations.filter((org: { role?: unknown }) =>
-      ALLOWED_PORTAL_ORG_ROLES.has(String(org.role)),
-    );
 
     return {
       ...toSafeUser(userRow),

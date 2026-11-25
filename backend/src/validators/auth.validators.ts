@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 export const SIGNUP_ALLOWED_ROLES = ['owner', 'project_manager'] as const;
-export const LOGIN_ALLOWED_ROLES = ['platform_admin', 'owner', 'project_manager'] as const;
+export const LOGIN_ALLOWED_ROLES = [
+  'platform_admin',
+  'owner',
+  'project_manager',
+  'team_member',
+  'auditor',
+] as const;
 
 export const registerSchema = z.object({
   email: z.string().email('Valid email address is required').max(255),
@@ -30,7 +36,7 @@ export const loginSchema = z.object({
   role: z
     .enum(LOGIN_ALLOWED_ROLES, {
       errorMap: () => ({
-        message: 'Login is restricted to Platform Admin, Organization Owner, and Project Manager roles',
+        message: 'Invalid portal role selected',
       }),
     })
     .optional(),

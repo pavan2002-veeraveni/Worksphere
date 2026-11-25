@@ -8,11 +8,13 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
+  CheckSquare,
   Crown,
   Eye,
   EyeOff,
   FolderKanban,
   ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -43,6 +45,8 @@ const ROLE_ICONS: Record<PortalLoginRole, React.ComponentType<{ className?: stri
   platform_admin: ShieldAlert,
   owner: Crown,
   project_manager: FolderKanban,
+  team_member: CheckSquare,
+  auditor: ShieldCheck,
 };
 
 const ROLE_SELECT_OPTIONS: SelectOption[] = PORTAL_ROLE_ORDER.map((r) => ({
@@ -244,7 +248,7 @@ export default function LoginPage() {
       <div>
         <h2 className="text-lg font-semibold text-secondary-900">Sign in to your account</h2>
         <p className="mt-0.5 text-xs text-secondary-500">
-          Select an authorized portal role (Organization Owner, Project Manager, or Platform Admin).
+          Choose your portal role to sign in to your workspace.
         </p>
       </div>
 
