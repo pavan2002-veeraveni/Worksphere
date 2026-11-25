@@ -11,12 +11,15 @@ from worksphere_processing.models import (
 from worksphere_processing.overdue_detector import OverdueDetector
 from worksphere_processing.report_generator import ReportGenerator
 from worksphere_processing.stream_processor import StreamProcessor
-from worksphere_processing.validators import ValidationError, validate_date_range, validate_task_record
+from worksphere_processing.validators import (
+    ValidationError,
+    validate_date_range,
+    validate_task_record,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
-    "__version__",
     "ActivityRecord",
     "OverdueDetector",
     "OverdueItem",
@@ -27,6 +30,7 @@ __all__ = [
     "TaskRecord",
     "TeamMemberMetrics",
     "ValidationError",
+    "__version__",
     "validate_date_range",
     "validate_task_record",
 ]

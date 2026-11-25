@@ -8,9 +8,9 @@ WORKDIR /app
 RUN addgroup -g 1001 -S worksphere && \
     adduser -S worksphere -u 1001 -G worksphere
 COPY package*.json ./
-RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev --no-audit --no-fund; fi && \
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev --no-package-lock --no-audit --no-fund; fi && \
     cp -R node_modules /prod_node_modules && \
-    if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+    if [ -f package-lock.json ]; then npm ci; else npm install --no-package-lock --no-audit --no-fund; fi
 
 # Stage 2: Build
 FROM base AS build
@@ -24,7 +24,7 @@ WORKDIR /app
 RUN addgroup -g 1001 -S worksphere && \
     adduser -S worksphere -u 1001 -G worksphere
 COPY package*.json ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+RUN if [ -f package-lock.json ]; then npm ci; else npm install --no-package-lock --no-audit --no-fund; fi
 COPY tsconfig.json ./
 COPY src ./src
 COPY --from=build /app/dist ./dist

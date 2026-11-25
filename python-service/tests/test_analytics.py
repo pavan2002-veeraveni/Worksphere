@@ -2,7 +2,7 @@
 
 from datetime import date, timedelta
 
-from tests.conftest import FakeExecuteResult, ORG_A, ORG_B, PROJECT_A1, USER_1, USER_2
+from tests.conftest import ORG_A, ORG_B, PROJECT_A1, USER_1, USER_2, FakeExecuteResult
 
 
 def test_analytics_requires_api_key(make_client):

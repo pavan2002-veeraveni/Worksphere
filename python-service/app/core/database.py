@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
 
@@ -65,7 +66,7 @@ async def check_db_health() -> bool:
         async with factory() as session:
             result = await session.execute(text("SELECT 1"))
             return result.scalar() == 1
-    except Exception:
+    except (SQLAlchemyError, OSError, TimeoutError):
         return False
 
 

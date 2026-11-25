@@ -1,6 +1,7 @@
 """Tests for ProductivityCalculator metrics, team breakdown, velocity, and cycle time."""
 
 from datetime import date
+
 import pytest
 
 from worksphere_processing.metrics_calculator import ProductivityCalculator

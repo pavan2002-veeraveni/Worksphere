@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -34,6 +34,9 @@ router = APIRouter(
     dependencies=[Depends(verify_api_key)],
 )
 
+OrgIdQuery = Annotated[UUID, Query(..., description="Tenant organization UUID")]
+DbSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+
 
 @router.get(
     "/projects/{project_id}/health",
@@ -42,8 +45,8 @@ router = APIRouter(
 )
 async def get_project_health(
     project_id: UUID,
-    org_id: UUID = Query(..., description="Tenant organization UUID"),
-    db: AsyncSession = Depends(get_db_session),
+    org_id: OrgIdQuery,
+    db: DbSessionDep,
 ) -> ProjectHealthResponse:
     try:
         return await analytics_service.calculate_project_health(db, org_id, project_id)
@@ -57,8 +60,8 @@ async def get_project_health(
     summary="Get organization team workload distribution",
 )
 async def get_workload(
-    org_id: UUID = Query(..., description="Tenant organization UUID"),
-    db: AsyncSession = Depends(get_db_session),
+    org_id: OrgIdQuery,
+    db: DbSessionDep,
 ) -> WorkloadResponse:
     return await analytics_service.calculate_workload(db, org_id)
 
@@ -70,8 +73,8 @@ async def get_workload(
 )
 async def get_cycle_time(
     project_id: UUID,
-    org_id: UUID = Query(..., description="Tenant organization UUID"),
-    db: AsyncSession = Depends(get_db_session),
+    org_id: OrgIdQuery,
+    db: DbSessionDep,
 ) -> CycleTimeResponse:
     try:
         return await analytics_service.calculate_cycle_time(db, org_id, project_id)
@@ -86,10 +89,10 @@ async def get_cycle_time(
 )
 async def get_delivery_metrics(
     project_id: UUID,
-    org_id: UUID = Query(..., description="Tenant organization UUID"),
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
-    db: AsyncSession = Depends(get_db_session),
+    org_id: OrgIdQuery,
+    db: DbSessionDep,
+    start_date: Annotated[date | None, Query()] = None,
+    end_date: Annotated[date | None, Query()] = None,
 ) -> DeliveryMetrics:
     today = date.today()
     resolved_end = end_date or today
@@ -116,8 +119,8 @@ async def get_delivery_metrics(
     summary="Get organization-wide analytics summary",
 )
 async def get_summary(
-    org_id: UUID = Query(..., description="Tenant organization UUID"),
-    db: AsyncSession = Depends(get_db_session),
+    org_id: OrgIdQuery,
+    db: DbSessionDep,
 ) -> AnalyticsSummary:
     return await analytics_service.generate_summary(db, org_id)
 
@@ -130,7 +133,7 @@ async def get_summary(
 )
 async def generate_report(
     payload: ReportRequest,
-    db: AsyncSession = Depends(get_db_session),
+    db: DbSessionDep,
 ) -> ReportStatus:
     try:
         report_id = await report_service.generate_report(db, payload)
@@ -151,7 +154,7 @@ async def generate_report(
 )
 async def download_report(
     report_id: UUID,
-    org_id: UUID = Query(..., description="Tenant organization UUID"),
+    org_id: OrgIdQuery,
 ):
     meta = report_service.get_report_meta(str(report_id))
     if meta is None or meta["org_id"] != str(org_id):

@@ -7,7 +7,7 @@ import json
 import os
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import text
@@ -32,7 +32,7 @@ def _register_report(report_id: str, org_id: str, status: str, path: str | None 
         "status": status,
         "path": path,
         "format": fmt,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
 

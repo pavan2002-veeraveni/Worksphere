@@ -12,7 +12,6 @@ from app.core.config import settings
 from app.core.database import get_db_session
 from app.main import app
 
-
 ORG_A = UUID("b0000000-0000-0000-0000-000000000001")
 ORG_B = UUID("b0000000-0000-0000-0000-000000000002")
 PROJECT_A1 = UUID("d0000000-0000-0000-0000-000000000001")

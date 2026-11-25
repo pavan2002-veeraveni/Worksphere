@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import csv
 import json
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from worksphere_processing.models import ActivityRecord, TaskRecord
 from worksphere_processing.validators import (
@@ -39,8 +39,7 @@ class StreamProcessor:
 
         with path.open("r", encoding="utf-8", newline="") as fh:
             reader = csv.DictReader(fh)
-            for row in reader:
-                yield row
+            yield from reader
 
     def process_jsonl(self, file_path: str | Path) -> Generator[dict[str, Any], None, None]:
         """Lazily yield each parsed JSON object from a JSON Lines (.jsonl) file."""

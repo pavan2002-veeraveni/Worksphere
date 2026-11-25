@@ -110,9 +110,7 @@ class ProductivityCalculator:
         completed_tasks: set[str] = set()
         for act in activity_stream:
             status_change = act.changes.get("status")
-            if isinstance(status_change, dict) and status_change.get("to") == "done":
-                completed_tasks.add(act.task_id)
-            elif act.action == "task.completed":
+            if isinstance(status_change, dict) and status_change.get("to") == "done" or act.action == "task.completed":
                 completed_tasks.add(act.task_id)
         return round(len(completed_tasks) / days, 4)
 

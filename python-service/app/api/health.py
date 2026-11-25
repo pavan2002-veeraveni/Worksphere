@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import time
+
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Response, status
+from redis.exceptions import RedisError
 
 from app.core.config import settings
 from app.core.database import check_db_health
@@ -18,14 +21,13 @@ _start_time = time.monotonic()
 async def _check_redis_health() -> bool:
     """Ping Redis if available, returning True when healthy."""
     try:
-        import redis.asyncio as aioredis
         client = aioredis.from_url(settings.REDIS_URL, socket_connect_timeout=2, socket_timeout=2)
         try:
             pong = await client.ping()
             return bool(pong)
         finally:
             await client.aclose()
-    except Exception:
+    except (RedisError, OSError, TimeoutError):
         return False
 
 
