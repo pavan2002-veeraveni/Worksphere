@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "worksphere-processing"
+version = "0.1.0"
+description = "Memory-efficient streaming processor for WorkSphere task and activity exports"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0",
+    "python-dateutil>=2.8.2",
+]
+
+[project.scripts]
+worksphere-process = "worksphere_processing.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

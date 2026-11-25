@@ -1,0 +1,21 @@
+id,org_id,project_id,title,status,priority,assignee_id,created_at,updated_at,due_date,estimated_hours,actual_hours
+task-001,org-acme,proj-1,Design system architecture,done,critical,user-alice,2026-01-02T09:00:00Z,2026-01-05T17:00:00Z,2026-01-06,16,14
+task-002,org-acme,proj-1,Implement JWT authentication,done,high,user-bob,2026-01-03T10:00:00Z,2026-01-08T14:00:00Z,2026-01-07,20,24
+task-003,org-acme,proj-1,Configure PostgreSQL schema,done,high,user-alice,2026-01-04T09:00:00Z,2026-01-06T12:00:00Z,2026-01-10,12,10
+task-004,org-acme,proj-1,Build task Kanban board,in_progress,high,user-bob,2026-01-05T08:00:00Z,2026-01-20T15:00:00Z,2026-01-15,30,18
+task-005,org-acme,proj-1,Implement BullMQ notification worker,in_review,critical,user-alice,2026-01-06T11:00:00Z,2026-01-18T16:00:00Z,2026-01-14,16,15
+task-006,org-acme,proj-2,Set up S3 attachment upload,todo,medium,user-carol,2026-01-07T09:30:00Z,2026-01-07T09:30:00Z,2026-01-25,10,
+task-007,org-acme,proj-2,Integrate Stripe sandbox webhook,done,high,user-carol,2026-01-08T10:00:00Z,2026-01-12T18:00:00Z,2026-01-15,14,12
+task-008,org-acme,proj-2,Add Playwright E2E tests,todo,medium,user-bob,2026-01-09T09:00:00Z,2026-01-09T09:00:00Z,2026-01-18,20,
+task-009,org-acme,proj-2,Optimize activity index,done,low,user-alice,2026-01-10T10:00:00Z,2026-01-11T16:00:00Z,2026-01-14,6,5
+task-010,org-acme,proj-2,Audit log export CSV,in_progress,medium,user-carol,2026-01-11T12:00:00Z,2026-01-19T11:00:00Z,2026-01-16,8,6
+task-011,org-acme,proj-1,Legacy SOAP connector,cancelled,low,user-bob,2026-01-12T08:00:00Z,2026-01-13T10:00:00Z,2026-01-30,12,
+task-012,org-acme,proj-1,Role-based middleware,done,critical,user-alice,2026-01-13T09:00:00Z,2026-01-15T17:00:00Z,2026-01-16,14,13
+task-013,org-acme,proj-2,Webhook HMAC verifier,done,high,user-carol,2026-01-14T10:00:00Z,2026-01-16T14:00:00Z,2026-01-17,8,8
+task-014,org-acme,proj-1,WebSocket task broadcast,in_review,high,user-alice,2026-01-15T09:00:00Z,2026-01-21T16:00:00Z,2026-01-20,16,14
+task-015,org-acme,proj-2,Add optimistic lock version check,done,critical,user-bob,2026-01-16T11:00:00Z,2026-01-18T19:00:00Z,2026-01-19,10,9
+task-016,org-acme,proj-1,Implement dark mode toggle,todo,low,,2026-01-17T10:00:00Z,2026-01-17T10:00:00Z,2026-12-31,6,
+task-017,org-acme,proj-2,Configure Prometheus metrics,done,medium,user-alice,2026-01-18T09:00:00Z,2026-01-19T17:00:00Z,2026-01-21,8,7
+task-018,org-acme,proj-1,Write API documentation,in_progress,medium,user-carol,2026-01-19T10:00:00Z,2026-01-22T15:00:00Z,2026-01-21,12,8
+task-019,org-acme,proj-2,Disaster recovery drill,done,high,user-alice,2026-01-20T09:00:00Z,2026-01-22T18:00:00Z,2026-01-23,10,9
+task-020,org-acme,proj-1,Load test Redis failover,todo,high,user-bob,2026-01-21T09:00:00Z,2026-01-21T09:00:00Z,2026-01-22,12,
