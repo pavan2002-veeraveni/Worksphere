@@ -57,9 +57,9 @@ jobs:
 
       - name: Lint Python services
         run: |
-          pip install ruff
-          cd python-service && ruff check .
-          cd ../python-processing && ruff check .
+          python -m pip install ruff
+          cd python-service && python -m ruff check .
+          cd ../python-processing && python -m ruff check .
 
   # ============================================
   # Backend Unit Tests
@@ -198,20 +198,20 @@ jobs:
             python-processing/requirements.txt
 
       - name: Install FastAPI service deps
-        run: cd python-service && pip install -r requirements.txt
+        run: cd python-service && python -m pip install -r requirements.txt
 
       - name: Run FastAPI tests
-        run: cd python-service && pytest --cov=app --cov-report=xml -v
+        run: cd python-service && python -m pytest --cov=app --cov-report=xml -v
         env:
           DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/worksphere_test
           REDIS_URL: redis://localhost:6379/0
           API_KEY: test-api-key
 
       - name: Install processing package deps
-        run: cd python-processing && pip install -r requirements.txt && pip install -e .
+        run: cd python-processing && python -m pip install -r requirements.txt && python -m pip install -e .
 
       - name: Run processing tests
-        run: cd python-processing && pytest --cov=worksphere_processing --cov-report=xml -v
+        run: cd python-processing && python -m pytest --cov=worksphere_processing --cov-report=xml -v
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -285,11 +285,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase repository name for GHCR
+        id: repo
+        run: echo "prefix=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          images: ${{ env.REGISTRY }}/${{ steps.repo.outputs.prefix }}/${{ matrix.service }}
           tags: |
             type=sha
             type=ref,event=branch
