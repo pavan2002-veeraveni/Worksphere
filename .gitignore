@@ -30,6 +30,8 @@ dist/
 Thumbs.db
 
 # Test coverage & reports
+.coverage
+**/.coverage
 coverage/
 **/coverage/
 coverage.xml
