@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+**/node_modules/
+__pycache__/
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Build outputs
+.next/
+**/.next/
+out/
+dist/
+**/dist/
+*.tsbuildinfo
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage & reports
+coverage/
+**/coverage/
+htmlcov/
+.pytest_cache/
+**/.pytest_cache/
+.nyc_output/
+playwright-report/
+test-results/
+reports/
+
+# Logs & caches
+*.log
+logs/
+.eslintcache
+
+# Docker & Uploads
+docker-data/
+uploads/
+temp/

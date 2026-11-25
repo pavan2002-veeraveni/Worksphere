@@ -1,0 +1,29 @@
+* @worksphere/core-team
+
+# Frontend
+/frontend/ @worksphere/frontend-team
+
+# Backend API
+/backend/ @worksphere/backend-team
+
+# Python services
+/python-service/ @worksphere/data-team
+/python-processing/ @worksphere/data-team
+
+# Database
+/database/ @worksphere/backend-team @worksphere/data-team
+
+# Infrastructure
+/docker-compose.yml @worksphere/devops-team
+/nginx/ @worksphere/devops-team
+/.github/ @worksphere/devops-team
+/Dockerfile @worksphere/devops-team
+
+# Documentation
+/docs/ @worksphere/core-team
+
+# Security-sensitive files
+/.env.example @worksphere/security-team
+/backend/src/middleware/authenticate.ts @worksphere/security-team
+/backend/src/middleware/authorize.ts @worksphere/security-team
+/backend/src/services/authService.ts @worksphere/security-team

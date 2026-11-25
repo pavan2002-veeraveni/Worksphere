@@ -1,0 +1,64 @@
+# ============================================
+# Rollback Workflow
+# ============================================
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version/SHA to rollback to'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    name: Rollback ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version }}
+
+      - name: Validate rollback target
+        run: |
+          echo "Rolling back ${{ inputs.environment }} to ${{ inputs.version }}"
+          echo "Reason: ${{ inputs.reason }}"
+
+      - name: Pull previous images
+        run: |
+          echo "Pulling images for version ${{ inputs.version }}"
+          # docker pull registry/worksphere-api:${{ inputs.version }}
+          # docker pull registry/worksphere-frontend:${{ inputs.version }}
+          # docker pull registry/worksphere-python:${{ inputs.version }}
+
+      - name: Deploy rollback
+        run: |
+          echo "Deploying rollback version..."
+          # SSH and docker-compose with specific version tags
+
+      - name: Verify rollback
+        run: |
+          echo "Verifying rollback..."
+          # curl health checks
+
+      - name: Create incident record
+        run: |
+          echo "Recording rollback incident"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Rolled back to: ${{ inputs.version }}"
+          echo "Reason: ${{ inputs.reason }}"
+          echo "Time: $(date -u)"
