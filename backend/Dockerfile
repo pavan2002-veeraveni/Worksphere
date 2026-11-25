@@ -27,6 +27,8 @@ COPY package*.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
+COPY --from=build /app/dist ./dist
+RUN mkdir -p uploads && chown -R worksphere:worksphere /app
 USER worksphere
 EXPOSE 4000
 CMD ["npx", "nodemon", "--exec", "ts-node", "src/server.ts"]

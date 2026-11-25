@@ -7,6 +7,7 @@ import { tenantContext } from '../../middleware/tenantContext';
 import { validate } from '../../middleware/validate';
 import {
   createCommentSchema,
+  createSubtaskSchema,
   createTaskSchema,
   updateCommentSchema,
   updateTaskSchema,
@@ -59,6 +60,7 @@ router.get('/:taskId/subtasks', taskController.listSubtasks);
 router.post(
   '/:taskId/subtasks',
   authorize('owner', 'project_manager', 'team_member'),
+  validate(createSubtaskSchema),
   taskController.createSubtask,
 );
 

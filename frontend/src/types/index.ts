@@ -1,5 +1,12 @@
 // ─── User & Auth ────────────────────────────────────────────────────────────
 
+export type LoginRole =
+  | 'platform_admin'
+  | 'owner'
+  | 'project_manager'
+  | 'team_member'
+  | 'auditor';
+
 export interface User {
   id: string;
   email: string;

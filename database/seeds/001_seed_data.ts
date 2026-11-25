@@ -4,7 +4,7 @@ import type { Knex } from 'knex';
  * Pre-computed bcrypt hash for "Password123!"
  * Generated with bcrypt cost factor 10.
  */
-const PASSWORD_HASH = '$2b$10$rICGuaY0A0wLpGOEqGxF4uYPdQPN5RJHWW0Jv5hKGTe8C8s5sQTCy';
+const PASSWORD_HASH = '$2a$10$vBETb9jzKyRjimGSWE/9/.rN2ZX1UtBUkJORVkhXscXIYtVuChore';
 
 // ── Static UUIDs for deterministic seeding ──────────────────────────────
 const IDS = {

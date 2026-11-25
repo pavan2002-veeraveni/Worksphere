@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Workflow } from 'lucide-react';
 import { useSelector } from 'react-redux';
+import { RoleGuard } from '@/components/auth/RoleGuard';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,11 +15,17 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { get, post } from '@/lib/api';
+import { getEffectiveRole } from '@/lib/roles';
 import type { RootState } from '@/store/store';
 import type { WorkflowRule } from '@/types';
 
 export default function WorkflowsPage() {
-  const { currentOrg } = useSelector((s: RootState) => s.auth);
+  const { user, currentOrg, activeRole } = useSelector((s: RootState) => s.auth);
+  const effectiveRole = getEffectiveRole(user, currentOrg, activeRole);
+  const canAccess =
+    effectiveRole === 'platform_admin' ||
+    effectiveRole === 'owner' ||
+    effectiveRole === 'project_manager';
   const { addToast } = useToast();
   const qc = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
@@ -28,13 +35,13 @@ export default function WorkflowsPage() {
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ['workflowRules', currentOrg?.id],
     queryFn: async () => (await get<WorkflowRule[]>('/workflow-rules')).data || [],
-    enabled: Boolean(currentOrg?.id),
+    enabled: Boolean(currentOrg?.id) && canAccess,
   });
 
   const { mutateAsync: createRule, isPending } = useMutation({
     mutationFn: () =>
       post('/workflow-rules', {
-        name,
+        name: name.trim(),
         triggerEvent,
         conditions: [{ field: 'priority', operator: 'equals', value: 'critical' }],
         actions: [{ type: 'send_notification', params: { title: 'Critical Task Escalation' } }],
@@ -45,11 +52,16 @@ export default function WorkflowsPage() {
       setModalOpen(false);
       addToast('Workflow rule created', 'success');
     },
+    onError: (err) => addToast((err as Error).message || 'Failed to create workflow rule', 'error'),
   });
 
-  if (isLoading) return <LoadingSpinner label="Loading automation rules..." />;
+  if (canAccess && isLoading) return <LoadingSpinner label="Loading automation rules..." />;
 
   return (
+    <RoleGuard
+      allowedRoles={['platform_admin', 'owner', 'project_manager']}
+      resourceLabel="Workflow Automation"
+    >
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -118,5 +130,6 @@ export default function WorkflowsPage() {
         </form>
       </Modal>
     </div>
+    </RoleGuard>
   );
 }

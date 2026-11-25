@@ -8,19 +8,21 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { useCreateProject, useProjects } from '@/hooks/useProjects';
+import { getEffectiveRole } from '@/lib/roles';
 import type { RootState } from '@/store/store';
 
 export default function ProjectsPage() {
-  const { user, currentOrg } = useSelector((s: RootState) => s.auth);
+  const { user, currentOrg, activeRole } = useSelector((s: RootState) => s.auth);
   const { data: res, isLoading } = useProjects(currentOrg?.id);
   const { mutateAsync: createProject, isPending } = useCreateProject();
   const { addToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
 
+  const effectiveRole = getEffectiveRole(user, currentOrg, activeRole);
   const canCreate =
-    Boolean(user?.isPlatformAdmin) ||
-    currentOrg?.role === 'owner' ||
-    currentOrg?.role === 'project_manager';
+    effectiveRole === 'platform_admin' ||
+    effectiveRole === 'owner' ||
+    effectiveRole === 'project_manager';
 
   const handleCreate = async (values: ProjectFormValues) => {
     try {

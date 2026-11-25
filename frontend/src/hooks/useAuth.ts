@@ -9,7 +9,8 @@ import {
   register as registerApi,
   RegisterData,
 } from '@/lib/auth';
-import { clearAuth, setUser } from '@/store/slices/authSlice';
+import { clearAuth, setAuthSession, setUser } from '@/store/slices/authSlice';
+import type { LoginRole, User, UserOrgMembership } from '@/types';
 
 export function useCurrentUser() {
   const dispatch = useDispatch();
@@ -28,17 +29,24 @@ export function useCurrentUser() {
 }
 
 export function useLogin() {
-  const queryClient = useQueryClient();
-  const dispatch = useDispatch();
-
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       loginApi(email, password),
-    onSuccess: (data) => {
-      dispatch(setUser(data.user));
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-    },
   });
+}
+
+export function useCommitRoleSession() {
+  const queryClient = useQueryClient();
+  const dispatch = useDispatch();
+
+  return (payload: {
+    user: User;
+    currentOrg: UserOrgMembership | null;
+    activeRole: LoginRole;
+  }) => {
+    dispatch(setAuthSession(payload));
+    queryClient.setQueryData(['currentUser'], payload.user);
+  };
 }
 
 export function useRegister() {
@@ -48,7 +56,13 @@ export function useRegister() {
   return useMutation({
     mutationFn: (data: RegisterData) => registerApi(data),
     onSuccess: (data) => {
-      dispatch(setUser(data.user));
+      dispatch(
+        setAuthSession({
+          user: data.user,
+          currentOrg: null,
+          activeRole: data.user.isPlatformAdmin ? 'platform_admin' : 'team_member',
+        }),
+      );
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
   });

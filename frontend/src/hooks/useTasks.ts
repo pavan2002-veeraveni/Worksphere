@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
 import { del, get, post, put } from '@/lib/api';
+import type { RootState } from '@/store/store';
 import type { Comment, Task } from '@/types';
 
 export function useTasks(filters?: {
@@ -11,12 +13,15 @@ export function useTasks(filters?: {
   page?: number;
   limit?: number;
 }) {
+  const currentOrgId = useSelector((s: RootState) => s.auth.currentOrg?.id);
+
   return useQuery({
-    queryKey: ['tasks', filters],
+    queryKey: ['tasks', currentOrgId, filters],
     queryFn: async () => {
       const res = await get<Task[]>('/tasks', filters as Record<string, unknown>);
       return res;
     },
+    enabled: Boolean(currentOrgId),
   });
 }
 

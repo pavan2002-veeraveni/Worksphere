@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
 
     model_config = {
-        "env_file": ".env",
+        "env_file": (".env", "../.env"),
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
         "extra": "ignore",

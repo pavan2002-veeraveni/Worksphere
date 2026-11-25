@@ -36,7 +36,10 @@ export async function processReminderJob(payload: ReminderJobPayload = {}): Prom
 
   let sent = 0;
   for (const task of dueTasks) {
-    const dueStr = String(task.due_date).slice(0, 10);
+    const dueStr =
+      task.due_date instanceof Date
+        ? task.due_date.toISOString().slice(0, 10)
+        : String(task.due_date).slice(0, 10);
     const idempotencyKey = generateIdempotencyKey('reminder', task.id, dueStr);
     const res = await processNotificationJob({
       idempotencyKey,

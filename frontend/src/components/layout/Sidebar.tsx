@@ -17,15 +17,18 @@ import {
   Workflow,
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
+import { Badge } from '@/components/ui/Badge';
+import { getEffectiveRole, ROLE_METADATA } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import type { RootState } from '@/store/store';
+import type { LoginRole } from '@/types';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles?: string[];
+  roles?: LoginRole[];
   platformAdminOnly?: boolean;
 }
 
@@ -39,13 +42,13 @@ const navItems: NavItem[] = [
     label: 'Workflow Rules',
     href: '/workflows',
     icon: Workflow,
-    roles: ['owner', 'project_manager'],
+    roles: ['platform_admin', 'owner', 'project_manager'],
   },
   {
     label: 'Audit Log',
     href: '/audit-logs',
     icon: Shield,
-    roles: ['owner', 'auditor'],
+    roles: ['platform_admin', 'owner', 'auditor'],
   },
   { label: 'Settings', href: '/settings', icon: Settings },
   { label: 'Platform Admin', href: '/admin', icon: ShieldAlert, platformAdminOnly: true },
@@ -55,13 +58,16 @@ export function Sidebar() {
   const pathname = usePathname();
   const dispatch = useDispatch();
   const sidebarOpen = useSelector((s: RootState) => s.ui.sidebarOpen);
-  const { user, currentOrg } = useSelector((s: RootState) => s.auth);
+  const { user, currentOrg, activeRole } = useSelector((s: RootState) => s.auth);
+  const effectiveRole = getEffectiveRole(user, currentOrg, activeRole);
+  const roleMeta = effectiveRole ? ROLE_METADATA[effectiveRole] : null;
+  const homeRoute = roleMeta?.defaultRoute || '/dashboard';
 
   const visibleItems = navItems.filter((item) => {
     if (item.platformAdminOnly) return Boolean(user?.isPlatformAdmin);
-    if (user?.isPlatformAdmin) return true;
     if (!item.roles) return true;
-    return currentOrg ? item.roles.includes(currentOrg.role) : false;
+    if (effectiveRole === 'platform_admin') return true;
+    return effectiveRole ? item.roles.includes(effectiveRole) : false;
   });
 
   return (
@@ -74,7 +80,7 @@ export function Sidebar() {
     >
       <div className="flex h-16 items-center justify-between border-b border-secondary-200 px-4">
         {sidebarOpen && (
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-primary-700 text-lg">
+          <Link href={homeRoute} className="flex items-center gap-2 font-bold text-primary-700 text-lg">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white text-sm">
               W
             </span>
@@ -114,13 +120,22 @@ export function Sidebar() {
         })}
       </nav>
 
-      {sidebarOpen && currentOrg && (
-        <div className="border-t border-secondary-200 p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-secondary-400">Workspace</p>
-          <p className="mt-1 truncate text-sm font-semibold text-secondary-800">{currentOrg.name}</p>
-          <p className="text-xs capitalize text-secondary-500">
-            Role: {currentOrg.role.replace('_', ' ')} • {currentOrg.plan}
+      {sidebarOpen && (currentOrg || roleMeta) && (
+        <div className="border-t border-secondary-200 p-4 space-y-1.5">
+          <p className="text-xs font-medium uppercase tracking-wider text-secondary-400">
+            Active Role Session
           </p>
+          <p className="truncate text-sm font-semibold text-secondary-800">
+            {effectiveRole === 'platform_admin'
+              ? 'Platform Console'
+              : currentOrg?.name || 'Personal Workspace'}
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {roleMeta && <Badge variant={roleMeta.badgeVariant}>{roleMeta.label}</Badge>}
+            {currentOrg && (
+              <span className="text-xs capitalize text-secondary-500">• {currentOrg.plan}</span>
+            )}
+          </div>
         </div>
       )}
     </aside>

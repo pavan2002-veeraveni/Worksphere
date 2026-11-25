@@ -34,9 +34,12 @@ export async function tenantContext(req: Request, _res: Response, next: NextFunc
     .where({ org_id: rawOrgId, user_id: req.user.id })
     .first<{ role: OrgRole }>('role');
 
+  const store = requestContextStorage.getStore();
+
   if (!membership) {
     if (req.user.isPlatformAdmin) {
       req.tenant = { orgId: rawOrgId, role: 'platform_admin' };
+      if (store) store.orgId = rawOrgId;
       return next();
     }
     throw ApiError.forbidden('You do not have access to this organization', 'TENANT_ACCESS_DENIED');
@@ -47,7 +50,6 @@ export async function tenantContext(req: Request, _res: Response, next: NextFunc
     role: membership.role,
   };
 
-  const store = requestContextStorage.getStore();
   if (store) {
     store.orgId = rawOrgId;
   }

@@ -61,9 +61,10 @@ export const deadLetterHandler = {
     return query;
   },
 
-  async markRetried(id: string): Promise<DeadLetterRecord | undefined> {
-    const [row] = await getDb()('dead_letter_jobs')
-      .where({ id })
+  async markRetried(id: string, orgId?: string): Promise<DeadLetterRecord | undefined> {
+    const query = getDb()('dead_letter_jobs').where({ id });
+    if (orgId) query.andWhere({ org_id: orgId });
+    const [row] = await query
       .update({ status: 'retried', retried_at: getDb().fn.now() })
       .returning('*');
     return row as DeadLetterRecord | undefined;

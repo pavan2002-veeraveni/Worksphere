@@ -142,12 +142,24 @@ export const taskController = {
       .update(`${storageService.sanitizeKey(key)}:${expires}`)
       .digest('hex');
 
-    if (sig !== expectedSig) {
+    const sigBuf = Buffer.from(sig, 'utf8');
+    const expBuf = Buffer.from(expectedSig, 'utf8');
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
       throw ApiError.forbidden('Invalid attachment signature');
     }
 
-    const data = await storageService.downloadFile(key);
-    return res.status(StatusCodes.OK).send(data);
+    try {
+      const data = await storageService.downloadFile(key);
+      const fileName = key.split('/').pop()?.replace(/["\r\n]/g, '_') || 'attachment';
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      return res.status(StatusCodes.OK).send(data);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw ApiError.notFound('Attachment file not found');
+      }
+      throw err;
+    }
   },
 
   async addWatcher(req: Request, res: Response): Promise<Response> {

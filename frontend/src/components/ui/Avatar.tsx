@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export interface AvatarProps {
@@ -23,9 +24,11 @@ function computeInitials(name: string): string {
 export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
   if (src) {
     return (
-      <img
+      <Image
         src={src}
         alt={name}
+        width={48}
+        height={48}
         className={cn('rounded-full object-cover', sizeClasses[size], className)}
       />
     );

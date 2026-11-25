@@ -18,6 +18,8 @@ export const createTaskSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
 });
 
+export const createSubtaskSchema = createTaskSchema.omit({ projectId: true });
+
 export const updateTaskSchema = z.object({
   milestoneId: z.string().uuid().nullable().optional(),
   title: z.string().trim().min(1).max(500).optional(),

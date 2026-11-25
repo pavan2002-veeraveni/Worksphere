@@ -15,7 +15,10 @@ const taskSchema = z.object({
   status: z.enum(['todo', 'in_progress', 'in_review', 'done', 'cancelled']),
   priority: z.enum(['low', 'medium', 'high', 'critical']),
   dueDate: z.string().optional(),
-  estimatedHours: z.coerce.number().nonnegative('Must be non-negative').optional(),
+  estimatedHours: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().nonnegative('Must be non-negative').optional(),
+  ),
 });
 
 export type TaskFormValues = z.infer<typeof taskSchema>;

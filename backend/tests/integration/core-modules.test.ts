@@ -128,7 +128,16 @@ describe('Core Modules: Orgs, Invitations, Teams, Projects, Milestones, Tasks, C
       .set('X-Org-ID', orgId);
     expect(watcher.status).toBe(200);
 
-    // 7. Export ICS calendar feed
+    // 7. Validate subtask route rejects empty title and accepts valid subtask
+    const badSubtask = await request(app)
+      .post(`/api/v1/tasks/${task.body.data.id}/subtasks`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .set('X-Org-ID', orgId)
+      .send({ title: '' });
+    expect(badSubtask.status).toBe(400);
+    expect(badSubtask.body.error.code).toBe('VALIDATION_ERROR');
+
+    // 8. Export ICS calendar feed
     const ics = await request(app)
       .get(`/api/v1/projects/${projectId}/calendar.ics`)
       .set('Authorization', `Bearer ${ownerToken}`)

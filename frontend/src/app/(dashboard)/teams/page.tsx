@@ -14,11 +14,12 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { get, post } from '@/lib/api';
+import { getEffectiveRole } from '@/lib/roles';
 import type { RootState } from '@/store/store';
 import type { OrganizationMember, Team } from '@/types';
 
 export default function TeamsPage() {
-  const { currentOrg } = useSelector((s: RootState) => s.auth);
+  const { user, currentOrg, activeRole } = useSelector((s: RootState) => s.auth);
   const { addToast } = useToast();
   const qc = useQueryClient();
   const [teamModal, setTeamModal] = useState(false);
@@ -39,7 +40,7 @@ export default function TeamsPage() {
   });
 
   const { mutateAsync: createTeam, isPending: creating } = useMutation({
-    mutationFn: () => post<Team>('/teams', { name: teamName, description: teamDesc }),
+    mutationFn: () => post<Team>('/teams', { name: teamName.trim(), description: teamDesc.trim() }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['teams'] });
       setTeamName('');
@@ -47,17 +48,23 @@ export default function TeamsPage() {
       setTeamModal(false);
       addToast('Team created', 'success');
     },
+    onError: (err) => addToast((err as Error).message || 'Failed to create team', 'error'),
   });
 
   const { mutateAsync: inviteMember, isPending: inviting } = useMutation({
     mutationFn: (values: InviteMemberValues) =>
       post(`/organizations/${currentOrg!.id}/invitations`, values),
     onSuccess: () => addToast('Invitation sent', 'success'),
+    onError: (err) => addToast((err as Error).message || 'Failed to send invitation', 'error'),
   });
 
   if (loadingTeams) return <LoadingSpinner label="Loading teams..." />;
 
-  const canManage = currentOrg?.role === 'owner' || currentOrg?.role === 'project_manager';
+  const effectiveRole = getEffectiveRole(user, currentOrg, activeRole);
+  const canManage =
+    effectiveRole === 'platform_admin' ||
+    effectiveRole === 'owner' ||
+    effectiveRole === 'project_manager';
 
   return (
     <div className="space-y-6">

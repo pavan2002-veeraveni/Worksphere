@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { FolderKanban } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import { MilestoneTimeline } from '@/components/projects/MilestoneTimeline';
 import { TaskForm, TaskFormValues } from '@/components/forms/TaskForm';
 import { ProjectForm, ProjectFormValues } from '@/components/forms/ProjectForm';
@@ -9,20 +11,35 @@ import { TaskBoard } from '@/components/tasks/TaskBoard';
 import { TaskDetail } from '@/components/tasks/TaskDetail';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { useMilestones, useProject, useUpdateProject } from '@/hooks/useProjects';
 import { useCreateTask, useTasks } from '@/hooks/useTasks';
+import { getEffectiveRole } from '@/lib/roles';
 import { getStatusLabel } from '@/lib/utils';
+import type { RootState } from '@/store/store';
 import type { Task, TaskStatus } from '@/types';
 
 export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const projectId = params.id;
+  const { user, currentOrg, activeRole } = useSelector((s: RootState) => s.auth);
+  const effectiveRole = getEffectiveRole(user, currentOrg, activeRole);
+  const canCreateTasks =
+    effectiveRole === 'platform_admin' ||
+    effectiveRole === 'owner' ||
+    effectiveRole === 'project_manager' ||
+    effectiveRole === 'team_member';
+  const canEditProject =
+    effectiveRole === 'platform_admin' ||
+    effectiveRole === 'owner' ||
+    effectiveRole === 'project_manager';
   const { addToast } = useToast();
 
-  const { data: project, isLoading } = useProject(projectId);
+  const { data: project, isLoading, isError } = useProject(projectId);
   const { data: tasksRes } = useTasks({ projectId, limit: 100 });
   const { data: milestones = [] } = useMilestones(projectId);
   const { mutateAsync: createTask, isPending: creatingTask } = useCreateTask();
@@ -32,29 +49,53 @@ export default function ProjectDetailPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [createStatus, setCreateStatus] = useState<TaskStatus | null>(null);
 
-  if (isLoading || !project) return <LoadingSpinner label="Loading project..." />;
+  if (isLoading) return <LoadingSpinner label="Loading project..." />;
+  if (isError || !project) {
+    return (
+      <EmptyState
+        icon={<FolderKanban className="h-6 w-6" />}
+        title="Project Not Found"
+        description="This project may not exist in your active organization workspace."
+        actionLabel="Back to Projects"
+        onAction={() => router.push('/projects')}
+      />
+    );
+  }
 
   const tasks = tasksRes?.data || [];
 
   const handleCreateTask = async (values: TaskFormValues) => {
-    await createTask({
-      ...values,
-      projectId,
-      dueDate: values.dueDate || null,
-    });
-    addToast('Task created', 'success');
-    setCreateStatus(null);
+    try {
+      await createTask({
+        ...values,
+        projectId,
+        dueDate: values.dueDate || null,
+      });
+      addToast('Task created', 'success');
+      setCreateStatus(null);
+    } catch (err) {
+      addToast((err as Error).message || 'Failed to create task', 'error');
+    }
   };
 
   const handleUpdateProject = async (values: ProjectFormValues) => {
-    await updateProject({
-      id: project.id,
-      version: project.version,
-      ...values,
-      startDate: values.startDate || null,
-      endDate: values.endDate || null,
-    });
-    addToast('Project settings updated', 'success');
+    try {
+      await updateProject({
+        id: project.id,
+        version: project.version,
+        ...values,
+        startDate: values.startDate || null,
+        endDate: values.endDate || null,
+      });
+      addToast('Project settings updated', 'success');
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 409) {
+        addToast('Project was updated by another user. Refreshing latest version.', 'error');
+      } else {
+        addToast((err as Error).message || 'Failed to update project settings', 'error');
+      }
+    }
   };
 
   return (
@@ -71,7 +112,7 @@ export default function ProjectDetailPage() {
       </div>
 
       <div className="flex gap-6 border-b border-secondary-200 text-sm font-medium">
-        {(['overview', 'tasks', 'milestones', 'settings'] as const).map((t) => (
+        {(['overview', 'tasks', 'milestones', ...(canEditProject ? (['settings'] as const) : [])] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -102,7 +143,7 @@ export default function ProjectDetailPage() {
         <TaskBoard
           tasks={tasks}
           onSelectTask={(t) => setSelectedTask(t)}
-          onAddTask={(status) => setCreateStatus(status)}
+          onAddTask={canCreateTasks ? (status) => setCreateStatus(status) : undefined}
         />
       )}
 
@@ -112,7 +153,7 @@ export default function ProjectDetailPage() {
         </Card>
       )}
 
-      {tab === 'settings' && (
+      {tab === 'settings' && canEditProject && (
         <Card title="Project Settings">
           <ProjectForm initialData={project} onSubmit={handleUpdateProject} loading={updatingProj} />
         </Card>

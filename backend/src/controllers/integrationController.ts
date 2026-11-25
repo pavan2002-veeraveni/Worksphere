@@ -61,7 +61,7 @@ export const integrationController = {
     const payload =
       typeof target.payload === 'string' ? JSON.parse(target.payload) : target.payload;
     await enqueueJob(target.queue_name, target.job_name, payload);
-    const updated = await deadLetterHandler.markRetried(target.id);
+    const updated = await deadLetterHandler.markRetried(target.id, req.tenant?.orgId);
     return successResponse(res, updated);
   },
 

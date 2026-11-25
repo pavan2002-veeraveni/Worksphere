@@ -12,12 +12,15 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useProjects } from '@/hooks/useProjects';
 import { useTasks } from '@/hooks/useTasks';
 import { get } from '@/lib/api';
+import { getEffectiveRole, ROLE_METADATA } from '@/lib/roles';
 import { formatDate, formatRelative, getStatusLabel } from '@/lib/utils';
 import type { RootState } from '@/store/store';
 import type { ActivityEntry } from '@/types';
 
 export default function DashboardPage() {
-  const { user, currentOrg } = useSelector((s: RootState) => s.auth);
+  const { user, currentOrg, activeRole } = useSelector((s: RootState) => s.auth);
+  const effectiveRole = getEffectiveRole(user, currentOrg, activeRole);
+  const roleMeta = effectiveRole ? ROLE_METADATA[effectiveRole] : ROLE_METADATA.team_member;
   const { data: projectsRes, isLoading: projLoading } = useProjects(currentOrg?.id);
   const { data: tasksRes, isLoading: taskLoading } = useTasks({ limit: 50 });
 
@@ -43,29 +46,45 @@ export default function DashboardPage() {
   });
 
   const canManageProjects =
-    user?.isPlatformAdmin || currentOrg?.role === 'owner' || currentOrg?.role === 'project_manager';
+    effectiveRole === 'platform_admin' ||
+    effectiveRole === 'owner' ||
+    effectiveRole === 'project_manager';
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">
-            Welcome back, {user?.firstName || 'User'}
-          </h1>
-          <p className="text-sm text-secondary-500">
-            {currentOrg ? `${currentOrg.name} workspace overview` : 'Select or create an organization'}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-secondary-900">
+              Welcome back, {user?.firstName || 'User'}
+            </h1>
+            <Badge variant={roleMeta.badgeVariant}>{roleMeta.label}</Badge>
+          </div>
+          <p className="mt-0.5 text-sm text-secondary-500">
+            {currentOrg ? `${currentOrg.name} workspace overview — ${roleMeta.tagline}` : roleMeta.tagline}
           </p>
         </div>
-        {canManageProjects && (
-          <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {effectiveRole === 'platform_admin' && (
+            <Link href="/admin">
+              <Button variant="outline">Platform Console</Button>
+            </Link>
+          )}
+          {canManageProjects && (
             <Link href="/projects">
               <Button leftIcon={<Plus className="h-4 w-4" />}>New Project</Button>
             </Link>
-            <Link href="/tasks">
-              <Button variant="outline">View Tasks</Button>
+          )}
+          {effectiveRole === 'auditor' ? (
+            <Link href="/audit-logs">
+              <Button>Inspect Audit Logs</Button>
             </Link>
-          </div>
-        )}
+          ) : (
+            <Link href="/tasks">
+              <Button variant={canManageProjects ? 'outline' : 'primary'}>View Tasks</Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* KPI summary cards */}
@@ -101,8 +120,8 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-secondary-500">Active Role</p>
-              <p className="mt-1 text-lg font-bold capitalize text-secondary-900">
-                {currentOrg?.role.replace('_', ' ') || 'Member'}
+              <p className="mt-1 text-lg font-bold text-secondary-900">
+                {roleMeta.label}
               </p>
             </div>
             <Users className="h-8 w-8 text-warning-500" />

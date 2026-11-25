@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
@@ -11,6 +12,7 @@ import type { Task, TaskStatus } from '@/types';
 import { CommentThread } from './CommentThread';
 
 export function TaskDetail({ task, onClose }: { task: Task; onClose?: () => void }) {
+  const queryClient = useQueryClient();
   const { addToast } = useToast();
   const { mutateAsync: updateTask, isPending } = useUpdateTask();
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
@@ -27,14 +29,21 @@ export function TaskDetail({ task, onClose }: { task: Task; onClose?: () => void
       addToast('Task status updated', 'success');
       onClose?.();
     } catch (err) {
-      const axiosErr = err as AxiosError<{ error?: { code?: string; message?: string } }>;
-      if (axiosErr.response?.status === 409) {
+      const errObj = err as AxiosError<{ error?: { code?: string; message?: string } }> & {
+        status?: number;
+        code?: string;
+      };
+      const httpStatus = errObj.status ?? errObj.response?.status;
+      if (httpStatus === 409 || errObj.code === 'OPTIMISTIC_LOCK_CONFLICT') {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['task', task.id] });
         setConflictWarning(
-          axiosErr.response.data?.error?.message ||
+          errObj.response?.data?.error?.message ||
+            errObj.message ||
             'Another user modified this task simultaneously. Refreshing latest version.',
         );
       } else {
-        addToast('Failed to update task', 'error');
+        addToast(errObj.message || 'Failed to update task', 'error');
       }
     }
   };

@@ -49,14 +49,45 @@ function processQueue(error: unknown, token: string | null) {
   failedQueue = [];
 }
 
+export interface ApiClientError extends Error {
+  status?: number;
+  code?: string;
+  details?: unknown;
+  response?: AxiosError<ApiResponse<unknown>>['response'];
+}
+
+function extractErrorMessage(error: AxiosError<ApiResponse<unknown>>): Error {
+  const apiError = error.response?.data?.error;
+  if (apiError?.message) {
+    const wrapped: ApiClientError = new Error(apiError.message);
+    wrapped.status = error.response?.status;
+    wrapped.code = apiError.code;
+    wrapped.details = apiError.details;
+    wrapped.response = error.response;
+    return wrapped;
+  }
+  return error;
+}
+
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (error: AxiosError<ApiResponse<unknown>>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    const reqUrl = originalRequest?.url || '';
+    const isAuthPublicRoute =
+      reqUrl.includes('/auth/login') ||
+      reqUrl.includes('/auth/register') ||
+      reqUrl.includes('/auth/refresh-token');
+
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthPublicRoute
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
@@ -74,7 +105,9 @@ api.interceptors.response.use(
 
       try {
         const raw = localStorage.getItem('auth_tokens');
-        if (!raw) throw new Error('No tokens');
+        if (!raw) {
+          return Promise.reject(extractErrorMessage(error));
+        }
         const tokens: AuthTokens = JSON.parse(raw);
 
         const { data } = await axios.post<ApiResponse<AuthTokens>>(
@@ -94,6 +127,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem('auth_tokens');
+        document.cookie = 'ws_authenticated=; path=/; Max-Age=0';
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
           window.location.href = '/login';
         }
@@ -103,7 +137,7 @@ api.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(extractErrorMessage(error));
   },
 );
 

@@ -2,23 +2,31 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Bell, LogOut, Menu, Search, Settings, User as UserIcon } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Bell, LogOut, Menu, Search, Settings, ShieldAlert, User as UserIcon } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useDispatch, useSelector } from 'react-redux';
 import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
 import { useLogout } from '@/hooks/useAuth';
 import { useMarkAsRead, useNotifications, useRealTimeNotifications, useUnreadCount } from '@/hooks/useNotifications';
-import { setCurrentOrg } from '@/store/slices/authSlice';
+import { canAccessRoute, getEffectiveRole, ROLE_METADATA } from '@/lib/roles';
+import { setActiveRole, setCurrentOrg } from '@/store/slices/authSlice';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import type { RootState } from '@/store/store';
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const dispatch = useDispatch();
-  const { user, currentOrg } = useSelector((s: RootState) => s.auth);
+  const queryClient = useQueryClient();
+  const { user, currentOrg, activeRole } = useSelector((s: RootState) => s.auth);
   const { mutate: logout } = useLogout();
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const effectiveRole = getEffectiveRole(user, currentOrg, activeRole);
+  const roleMeta = effectiveRole ? ROLE_METADATA[effectiveRole] : null;
 
   useRealTimeNotifications(currentOrg?.id);
   const { data: unreadCount = 0 } = useUnreadCount(currentOrg?.id);
@@ -28,7 +36,25 @@ export function Header() {
   const handleOrgChange = (orgId: string) => {
     const selected = user?.organizations?.find((o) => o.id === orgId) || null;
     dispatch(setCurrentOrg(selected));
+    queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] !== 'currentUser',
+    });
+    if (selected && user && !canAccessRoute(pathname, selected.role, user)) {
+      router.push(ROLE_METADATA[selected.role].defaultRoute);
+      return;
+    }
     router.refresh();
+  };
+
+  const handleSwitchPlatformMode = () => {
+    if (!user?.isPlatformAdmin) return;
+    if (effectiveRole === 'platform_admin' && currentOrg) {
+      dispatch(setActiveRole(currentOrg.role));
+      router.push(ROLE_METADATA[currentOrg.role].defaultRoute);
+    } else {
+      dispatch(setActiveRole('platform_admin'));
+      router.push('/admin');
+    }
   };
 
   const handleLogout = () => {
@@ -58,10 +84,23 @@ export function Header() {
           >
             {user.organizations.map((org) => (
               <option key={org.id} value={org.id}>
-                {org.name} ({org.role.replace('_', ' ')})
+                {org.name} ({ROLE_METADATA[org.role]?.label || org.role})
               </option>
             ))}
           </select>
+        )}
+
+        {user?.isPlatformAdmin && (
+          <button
+            type="button"
+            onClick={handleSwitchPlatformMode}
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-secondary-300 bg-white px-2.5 py-1.5 text-xs font-medium text-secondary-700 hover:bg-secondary-50"
+          >
+            <ShieldAlert className="h-3.5 w-3.5 text-danger-600" />
+            {effectiveRole === 'platform_admin' && currentOrg
+              ? `Switch to ${ROLE_METADATA[currentOrg.role].shortLabel}`
+              : 'Platform Admin Console'}
+          </button>
         )}
 
         <div className="hidden md:flex items-center gap-2 rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-1.5 text-sm text-secondary-500 w-64">
@@ -76,6 +115,12 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
+        {roleMeta && (
+          <Badge variant={roleMeta.badgeVariant} className="hidden sm:inline-flex">
+            {roleMeta.label}
+          </Badge>
+        )}
+
         {/* Notifications dropdown */}
         <div className="relative">
           <button
@@ -140,7 +185,17 @@ export function Header() {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-secondary-200 bg-white py-1 shadow-lg z-40">
+            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-secondary-200 bg-white py-1 shadow-lg z-40">
+              {user && (
+                <div className="border-b border-secondary-100 px-4 py-2">
+                  <p className="truncate text-xs font-medium text-secondary-900">{user.email}</p>
+                  {roleMeta && (
+                    <Badge variant={roleMeta.badgeVariant} className="mt-1">
+                      {roleMeta.label}
+                    </Badge>
+                  )}
+                </div>
+              )}
               <Link
                 href="/settings"
                 onClick={() => setMenuOpen(false)}

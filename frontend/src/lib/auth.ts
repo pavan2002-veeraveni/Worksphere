@@ -24,6 +24,7 @@ export function clearStoredTokens(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem('current_org_id');
+  localStorage.removeItem('active_role');
   document.cookie = 'ws_authenticated=; path=/; Max-Age=0';
 }
 
@@ -31,13 +32,21 @@ export async function login(
   email: string,
   password: string,
 ): Promise<{ user: User; tokens: AuthTokens }> {
-  const response = await post<{ user: User; tokens: AuthTokens }>('/auth/login', {
+  const response = await post<{
+    user: User;
+    tokens: AuthTokens;
+    organizations?: User['organizations'];
+  }>('/auth/login', {
     email,
     password,
   });
   if (response.success && response.data) {
     setStoredTokens(response.data.tokens);
-    return response.data;
+    const mergedUser: User = {
+      ...response.data.user,
+      organizations: response.data.organizations || response.data.user.organizations,
+    };
+    return { user: mergedUser, tokens: response.data.tokens };
   }
   throw new Error(response.error?.message || 'Login failed');
 }
